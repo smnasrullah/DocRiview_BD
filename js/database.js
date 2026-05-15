@@ -1,22 +1,22 @@
 // ============================================================
-// database.js — Doctor Review System
+// database.js — Doctor Review System v3
 // ============================================================
 
 const DB = {
   init() {
     if (!localStorage.getItem('db_initialized')) {
       const users = [
-        { id: 1, name: 'Admin User', email: 'admin@docreview.com', password: 'admin123', role: 'admin', avatar: 'AU', joined: '2024-01-01', verified: true },
-        { id: 2, name: 'Rahim Hossain', email: 'rahim@gmail.com', password: 'pass123', role: 'patient', avatar: 'RH', joined: '2024-02-10', verified: true, phone: '01711-234567', bloodGroup: 'B+', age: 35, gender: 'Male', address: 'Mirpur, Dhaka' },
-        { id: 3, name: 'Fatema Begum', email: 'fatema@gmail.com', password: 'pass123', role: 'patient', avatar: 'FB', joined: '2024-03-05', verified: true, phone: '01822-345678', bloodGroup: 'O+', age: 28, gender: 'Female', address: 'Dhanmondi, Dhaka' },
+        { id: 1, name: 'Admin User', email: 'admin@docreview.com', password: 'admin123', role: 'admin', avatar: 'AU', joined: '2024-01-01' },
+        { id: 2, name: 'Rahim Hossain', email: 'rahim@gmail.com', password: 'pass123', role: 'patient', avatar: 'RH', joined: '2024-02-10', phone: '01711234567', bloodGroup: 'B+', age: 35, gender: 'Male', address: 'Mirpur, Dhaka' },
+        { id: 3, name: 'Fatema Begum', email: 'fatema@gmail.com', password: 'pass123', role: 'patient', avatar: 'FB', joined: '2024-03-05', phone: '01822345678', bloodGroup: 'O+', age: 28, gender: 'Female', address: 'Dhanmondi, Dhaka' },
       ];
       const doctors = [
-        { id: 1, userId: null, name: 'Dr. Arif Ahmed', specialty: 'Cardiologist', degree: 'MBBS, MD (Cardiology), FCPS', bmdc: 'A-12345', hospital: 'Square Hospital, Dhaka', chamber: 'Square Hospital, 18/F West Panthapath, Dhaka', chamberTime: 'Sat-Thu: 6PM-9PM', district: 'Dhaka', experience: 15, fee: 1500, rating: 4.8, reviews: 124, available: true, phone: '01912-345678', email: 'arif@sq.com', about: 'Specialist in heart diseases with 15 years of experience. Expert in interventional cardiology and echocardiography.' },
-        { id: 2, userId: null, name: 'Dr. Nasrin Islam', specialty: 'Dermatologist', degree: 'MBBS, DDV, FCPS (Dermatology)', bmdc: 'A-23456', hospital: 'United Hospital, Dhaka', chamber: 'United Hospital, Plot 15, Road 71, Gulshan', chamberTime: 'Sun-Thu: 5PM-8PM', district: 'Dhaka', experience: 10, fee: 1200, rating: 4.6, reviews: 89, available: true, phone: '01812-456789', email: 'nasrin@uh.com', about: 'Expert in skin diseases, laser treatment and cosmetic dermatology.' },
-        { id: 3, userId: null, name: 'Dr. Karim Uddin', specialty: 'Orthopedic Surgeon', degree: 'MBBS, MS (Orthopedics), FCPS', bmdc: 'A-34567', hospital: 'Labaid Hospital, Dhaka', chamber: 'Labaid Specialized Hospital, Dhanmondi', chamberTime: 'Sat-Wed: 4PM-7PM', district: 'Dhaka', experience: 20, fee: 2000, rating: 4.9, reviews: 203, available: true, phone: '01712-567890', email: 'karim@lb.com', about: 'Senior orthopedic surgeon specializing in joint replacement and spine surgery. 3000+ successful surgeries.' },
-        { id: 4, userId: null, name: 'Dr. Shamima Akter', specialty: 'Gynecologist', degree: 'MBBS, FCPS (Gynecology)', bmdc: 'A-45678', hospital: 'Anwer Khan Modern, Dhaka', chamber: 'Anwer Khan Modern Hospital, Dhanmondi', chamberTime: 'Mon-Thu: 5PM-8PM', district: 'Dhaka', experience: 12, fee: 1300, rating: 4.7, reviews: 156, available: false, phone: '01612-678901', email: 'shamima@ak.com', about: "Women's health specialist. Expert in high-risk pregnancy and laparoscopic surgery." },
-        { id: 5, userId: null, name: 'Dr. Rafiqul Islam', specialty: 'Neurologist', degree: 'MBBS, MD (Neurology), FCPS', bmdc: 'A-56789', hospital: 'BIRDEM Hospital, Dhaka', chamber: 'BIRDEM General Hospital, Shahbag', chamberTime: 'Sun-Thu: 3PM-6PM', district: 'Dhaka', experience: 18, fee: 1800, rating: 4.5, reviews: 97, available: true, phone: '01512-789012', email: 'rafiq@bd.com', about: 'Expert in brain and nervous system disorders, stroke management and epilepsy treatment.' },
-        { id: 6, userId: null, name: 'Dr. Sumaiya Khan', specialty: 'Pediatrician', degree: 'MBBS, DCH, FCPS (Pediatrics)', bmdc: 'A-67890', hospital: 'Dhaka Shishu Hospital', chamber: 'Dhaka Shishu Hospital, Sher-e-Bangla Nagar', chamberTime: 'Sat-Thu: 8AM-2PM', district: 'Dhaka', experience: 8, fee: 1000, rating: 4.8, reviews: 178, available: true, phone: '01412-890123', email: 'sumaiya@dsh.com', about: 'Child health specialist. Expert in newborn care, vaccinations and childhood diseases.' },
+        { id: 1, userId: null, name: 'Dr. Arif Ahmed', specialty: 'Cardiologist', degree: 'MBBS, MD (Cardiology), FCPS', bmdc: 'A-12345', hospital: 'Square Hospital, Dhaka', chamber: 'Square Hospital, 18/F West Panthapath, Dhaka', chamberTime: 'Sat-Thu: 6PM-9PM', district: 'Dhaka', experience: 15, fee: 1500, rating: 4.8, reviews: 124, available: true, phone: '01912345678', email: 'arif@sq.com', about: 'Specialist in heart diseases with 15 years of experience. Expert in interventional cardiology and echocardiography.' },
+        { id: 2, userId: null, name: 'Dr. Nasrin Islam', specialty: 'Dermatologist', degree: 'MBBS, DDV, FCPS (Dermatology)', bmdc: 'A-23456', hospital: 'United Hospital, Dhaka', chamber: 'United Hospital, Plot 15, Road 71, Gulshan', chamberTime: 'Sun-Thu: 5PM-8PM', district: 'Dhaka', experience: 10, fee: 1200, rating: 4.6, reviews: 89, available: true, phone: '01812456789', email: 'nasrin@uh.com', about: 'Expert in skin diseases, laser treatment and cosmetic dermatology.' },
+        { id: 3, userId: null, name: 'Dr. Karim Uddin', specialty: 'Orthopedic Surgeon', degree: 'MBBS, MS (Orthopedics), FCPS', bmdc: 'A-34567', hospital: 'Labaid Hospital, Dhaka', chamber: 'Labaid Specialized Hospital, Dhanmondi', chamberTime: 'Sat-Wed: 4PM-7PM', district: 'Dhaka', experience: 20, fee: 2000, rating: 4.9, reviews: 203, available: true, phone: '01712567890', email: 'karim@lb.com', about: 'Senior orthopedic surgeon specializing in joint replacement and spine surgery. 3000+ successful surgeries.' },
+        { id: 4, userId: null, name: 'Dr. Shamima Akter', specialty: 'Gynecologist', degree: 'MBBS, FCPS (Gynecology)', bmdc: 'A-45678', hospital: 'Anwer Khan Modern, Dhaka', chamber: 'Anwer Khan Modern Hospital, Dhanmondi', chamberTime: 'Mon-Thu: 5PM-8PM', district: 'Dhaka', experience: 12, fee: 1300, rating: 4.7, reviews: 156, available: false, phone: '01612678901', email: 'shamima@ak.com', about: "Women's health specialist. Expert in high-risk pregnancy and laparoscopic surgery." },
+        { id: 5, userId: null, name: 'Dr. Rafiqul Islam', specialty: 'Neurologist', degree: 'MBBS, MD (Neurology), FCPS', bmdc: 'A-56789', hospital: 'BIRDEM Hospital, Dhaka', chamber: 'BIRDEM General Hospital, Shahbag', chamberTime: 'Sun-Thu: 3PM-6PM', district: 'Dhaka', experience: 18, fee: 1800, rating: 4.5, reviews: 97, available: true, phone: '01512789012', email: 'rafiq@bd.com', about: 'Expert in brain and nervous system disorders, stroke management and epilepsy treatment.' },
+        { id: 6, userId: null, name: 'Dr. Sumaiya Khan', specialty: 'Pediatrician', degree: 'MBBS, DCH, FCPS (Pediatrics)', bmdc: 'A-67890', hospital: 'Dhaka Shishu Hospital', chamber: 'Dhaka Shishu Hospital, Sher-e-Bangla Nagar', chamberTime: 'Sat-Thu: 8AM-2PM', district: 'Dhaka', experience: 8, fee: 1000, rating: 4.8, reviews: 178, available: true, phone: '01412890123', email: 'sumaiya@dsh.com', about: 'Child health specialist. Expert in newborn care, vaccinations and childhood diseases.' },
       ];
       const reviews = [
         { id: 1, doctorId: 1, patientId: 2, patientName: 'Rahim Hossain', rating: 5, comment: 'Excellent doctor! Very attentive and explained everything clearly. Highly recommended.', date: '2024-11-15', helpful: 12 },
@@ -56,37 +56,30 @@ const DB = {
   },
   getVisitCount() { return parseInt(localStorage.getItem('site_visits') || '0'); },
 
-  // ===== VERIFICATION =====
-  generateCode(email) {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    localStorage.setItem('vcode', JSON.stringify({ code, email, exp: Date.now() + 600000 }));
-    return code;
+  // ===== VALIDATION =====
+  emailExists(email) { return !!this.getAll('users').find(u => u.email === email.toLowerCase().trim()); },
+  phoneExistsForPatient(phone) {
+    const clean = phone.replace(/\D/g, '');
+    return !!this.getAll('users').find(u => u.role === 'patient' && u.phone && u.phone.replace(/\D/g, '') === clean);
   },
-  verifyCode(email, input) {
-    const d = JSON.parse(localStorage.getItem('vcode') || 'null');
-    if (!d) return { error: 'কোনো verification pending নেই' };
-    if (d.email !== email) return { error: 'Email মিলছে না' };
-    if (Date.now() > d.exp) { localStorage.removeItem('vcode'); return { error: 'Code মেয়াদ শেষ। নতুন code নিন।' }; }
-    if (d.code !== input.toString().trim()) return { error: 'Code ভুল। আবার চেষ্টা করুন।' };
-    localStorage.removeItem('vcode');
-    return { success: true };
-  },
-  getPendingEmail() {
-    const d = JSON.parse(localStorage.getItem('vcode') || 'null');
-    return d ? d.email : null;
+  bmdcExists(bmdc) {
+    return !!this.getAll('doctors').find(d => d.bmdc && d.bmdc.toLowerCase().trim() === bmdc.toLowerCase().trim());
   },
 
   // ===== USERS =====
-  findUser(email, password) { return this.getAll('users').find(u => u.email === email && u.password === password); },
+  findUser(email, password) { return this.getAll('users').find(u => u.email === email.trim() && u.password === password); },
   getUserById(id) { return this.getAll('users').find(u => u.id === parseInt(id)); },
-  emailExists(email) { return !!this.getAll('users').find(u => u.email === email); },
 
   registerPatient(data) {
     if (this.emailExists(data.email)) return { error: 'এই email দিয়ে আগেই account আছে' };
-    const user = { id: this.nextId('users'), role: 'patient', verified: true, joined: new Date().toISOString().split('T')[0],
+    if (this.phoneExistsForPatient(data.phone)) return { error: 'এই phone number দিয়ে আগেই account আছে' };
+    const user = {
+      id: this.nextId('users'), role: 'patient',
+      joined: new Date().toISOString().split('T')[0],
       avatar: data.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-      name: data.name, email: data.email, password: data.password,
-      phone: data.phone, gender: data.gender, age: data.age, bloodGroup: data.bloodGroup, address: data.address,
+      name: data.name, email: data.email.trim(), password: data.password,
+      phone: data.phone.replace(/\D/g, ''),
+      gender: data.gender, age: data.age, bloodGroup: data.bloodGroup, address: data.address,
     };
     const users = this.getAll('users');
     users.push(user);
@@ -96,20 +89,25 @@ const DB = {
 
   registerDoctor(data) {
     if (this.emailExists(data.email)) return { error: 'এই email দিয়ে আগেই account আছে' };
+    if (this.bmdcExists(data.bmdc)) return { error: 'এই BMDC নম্বর দিয়ে আগেই ডাক্তার registered আছেন' };
     const userId = this.nextId('users');
-    const user = { id: userId, role: 'doctor', verified: true, joined: new Date().toISOString().split('T')[0],
+    const user = {
+      id: userId, role: 'doctor',
+      joined: new Date().toISOString().split('T')[0],
       avatar: data.name.replace(/^Dr\.?\s*/i, '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-      name: data.name, email: data.email, password: data.password,
+      name: data.name, email: data.email.trim(), password: data.password,
     };
     const users = this.getAll('users');
     users.push(user);
     this.save('users', users);
-
-    const doctor = { id: this.nextId('doctors'), userId, rating: 0, reviews: 0, available: true,
-      name: data.name, specialty: data.specialty, degree: data.degree, bmdc: data.bmdc,
-      hospital: data.hospital, chamber: data.chamber, chamberTime: data.chamberTime,
-      district: data.district, experience: parseInt(data.experience) || 0, fee: parseInt(data.fee) || 0,
-      phone: data.phone, email: data.email, about: data.about || '',
+    const doctor = {
+      id: this.nextId('doctors'), userId,
+      rating: 0, reviews: 0, available: true,
+      name: data.name, specialty: data.specialty, degree: data.degree,
+      bmdc: data.bmdc.trim(), hospital: data.hospital, chamber: data.chamber,
+      chamberTime: data.chamberTime, district: data.district,
+      experience: parseInt(data.experience) || 0, fee: parseInt(data.fee) || 0,
+      phone: data.phone, email: data.email.trim(), about: data.about || '',
     };
     const doctors = this.getAll('doctors');
     doctors.push(doctor);
@@ -121,20 +119,30 @@ const DB = {
   getAllDoctors() { return this.getAll('doctors'); },
   getDoctorById(id) { return this.getAll('doctors').find(d => d.id === parseInt(id)); },
   getDoctorByUserId(uid) { return this.getAll('doctors').find(d => d.userId === parseInt(uid)); },
-  searchDoctors(query, specialty, district) {
-    return this.getAll('doctors').filter(d => {
+
+  searchDoctors(query, specialty, district, sortBy) {
+    let results = this.getAll('doctors').filter(d => {
       const q = !query || d.name.toLowerCase().includes(query.toLowerCase()) || d.specialty.toLowerCase().includes(query.toLowerCase());
       const s = !specialty || d.specialty === specialty;
       const dist = !district || d.district === district;
       return q && s && dist;
     });
+    // Sort
+    if (sortBy === 'rating') results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    else if (sortBy === 'fee_low') results.sort((a, b) => (a.fee || 0) - (b.fee || 0));
+    else if (sortBy === 'fee_high') results.sort((a, b) => (b.fee || 0) - (a.fee || 0));
+    else if (sortBy === 'experience') results.sort((a, b) => (b.experience || 0) - (a.experience || 0));
+    else results.sort((a, b) => (b.rating || 0) - (a.rating || 0)); // default: rating
+    return results;
   },
+
   addDoctor(data) {
+    if (this.bmdcExists(data.bmdc)) return { error: 'এই BMDC নম্বর আগেই registered' };
     const doctors = this.getAll('doctors');
     const doc = { id: this.nextId('doctors'), ...data, rating: 0, reviews: 0, available: true };
     doctors.push(doc);
     this.save('doctors', doctors);
-    return doc;
+    return { doctor: doc };
   },
   deleteDoctor(id) { this.save('doctors', this.getAll('doctors').filter(d => d.id !== parseInt(id))); },
 
@@ -143,10 +151,12 @@ const DB = {
   getReviewsByPatient(id) { return this.getAll('reviews').filter(r => r.patientId === parseInt(id)); },
   addReview(doctorId, patientId, patientName, rating, comment) {
     const reviews = this.getAll('reviews');
-    if (reviews.find(r => r.doctorId === parseInt(doctorId) && r.patientId === parseInt(patientId))) return { error: 'আপনি এই ডাক্তারকে আগেই review করেছেন' };
+    if (reviews.find(r => r.doctorId === parseInt(doctorId) && r.patientId === parseInt(patientId)))
+      return { error: 'আপনি এই ডাক্তারকে আগেই review করেছেন' };
     const review = { id: this.nextId('reviews'), doctorId: parseInt(doctorId), patientId: parseInt(patientId), patientName, rating: parseInt(rating), comment, date: new Date().toISOString().split('T')[0], helpful: 0 };
     reviews.push(review);
     this.save('reviews', reviews);
+    // update doctor rating
     const doctors = this.getAll('doctors');
     const doc = doctors.find(d => d.id === parseInt(doctorId));
     if (doc) {
@@ -185,11 +195,12 @@ const DB = {
   getSession() { return JSON.parse(sessionStorage.getItem('current_user') || 'null'); },
   clearSession() { sessionStorage.removeItem('current_user'); },
 
-  // ===== STATS =====
+  // ===== STATS — real counts only =====
   getStats() {
+    const users = this.getAll('users');
     return {
       totalDoctors: this.getAll('doctors').length,
-      totalPatients: this.getAll('users').filter(u => u.role === 'patient').length,
+      totalPatients: users.filter(u => u.role === 'patient').length,
       totalReviews: this.getAll('reviews').length,
       totalAppointments: this.getAll('appointments').length,
       totalVisits: this.getVisitCount(),

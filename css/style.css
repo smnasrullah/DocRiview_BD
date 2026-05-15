@@ -251,6 +251,12 @@ footer { background: var(--navy); color: var(--gray-400); padding: 40px 5% 24px;
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* ===== SORT BAR ===== */
+.sort-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.sort-label { font-size: 0.82rem; font-weight: 600; color: var(--gray-400); }
+.sort-btn { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--gray-100); color: var(--gray-600); border: 1.5px solid var(--gray-200); cursor: pointer; transition: all 0.2s; }
+.sort-btn:hover, .sort-btn.active { background: rgba(10,147,150,0.12); color: var(--teal); border-color: var(--teal); }
+
 /* ===== SPECIALTY PILLS ===== */
 .specialty-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
 .pill { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; background: var(--gray-100); color: var(--gray-600); border: 1.5px solid var(--gray-200); cursor: pointer; transition: all 0.2s; }
