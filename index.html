@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DocReview BD — ডাক্তার খুঁজুন ও Review দিন</title>
+  <title>DocReview BD — বিশ্বস্ত ডাক্তার Review Platform</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
-
+<body>
 
 <!-- NAVBAR -->
+
 <nav class="navbar">
   <div class="navbar-brand" onclick="showPage('home')">
-    <div class="logo-icon">🩺</div>Doc<span>Review</span><span style="font-size:0.7rem;color:var(--gray-400);font-weight:400;margin-left:2px">BD</span>
+    <span class="logo-icon">🩺</span>Doc<span class="brand-colored">Review</span><span class="brand-bd">BD</span>
   </div>
   <div class="navbar-links">
     <button class="nav-link" onclick="showPage('home')">Home</button>
@@ -20,32 +22,20 @@
   <div class="user-menu" id="nav-user-area"></div>
 </nav>
 
-<!-- ========== HOME ========== -->
 <div id="page-home" class="page">
   <section class="hero">
     <div class="hero-content">
-      <div class="hero-tag"><span>🇧🇩 বাংলাদেশের সেরা Doctor Review Platform</span></div>
-      <h1>সেরা <em>ডাক্তার</em> খুঁজুন<br>বিশ্বস্ত Review পড়ুন</h1>
-      <p>রোগীদের সত্যিকারের মতামত পড়ুন, BMDC-verified ডাক্তার খুঁজুন এবং সহজেই appointment নিন।</p>
+      <div class="hero-tag">🇧🇩 বাংলাদেশের বিশ্বস্ত Doctor Review Platform</div>
+      <h1>সেরা <em>ডাক্তার</em> খুঁজুন,<br>বিশ্বস্ত Review পড়ুন</h1>
+      <p>রোগীদের সত্যিকারের মতামত পড়ুন। BMDC-verified ডাক্তার খুঁজুন।<br>Admin দ্বারা যাচাইকৃত review দেখুন।</p>
       <div class="hero-actions">
         <button class="btn-primary" onclick="showPage('doctors')">🔍 ডাক্তার খুঁজুন</button>
-        <button class="btn-outline" onclick="openModal('modal-reg-choice')">Account তৈরি করুন</button>
+        <button class="btn-outline" onclick="openModal('modal-reg-choice')">✨ Account তৈরি করুন</button>
       </div>
-
-      <!-- REAL STATS — live from database -->
       <div class="hero-stats">
-        <div class="stat-item">
-          <span class="num" id="stat-visits">0</span>
-          <span class="label">👁️ মোট Visit</span>
-        </div>
-        <div class="stat-item">
-          <span class="num" id="stat-doctors">0</span>
-          <span class="label">👨‍⚕️ মোট ডাক্তার</span>
-        </div>
-        <div class="stat-item">
-          <span class="num" id="stat-patients">0</span>
-          <span class="label">🧑‍🤒 মোট রোগী</span>
-        </div>
+        <div class="stat-item"><span class="num" id="stat-visits">0</span><span class="label">👁️ মোট Visit</span></div>
+        <div class="stat-item"><span class="num" id="stat-doctors">0</span><span class="label">👨‍⚕️ ডাক্তার</span></div>
+        <div class="stat-item"><span class="num" id="stat-patients">0</span><span class="label">🧑‍🤒 রোগী</span></div>
       </div>
     </div>
   </section>
@@ -54,64 +44,53 @@
     <div class="search-bar">
       <div class="search-input-wrap">
         <span>🔍</span>
-        <input type="text" id="search-input" placeholder="ডাক্তারের নাম বা specialty লিখুন..." onkeydown="if(event.key==='Enter') handleSearch()">
+        <input type="text" id="search-input" placeholder="ডাক্তারের নাম বা specialty লিখুন..." onkeydown="if(event.key==='Enter')handleSearch()">
       </div>
       <select class="search-select" id="search-specialty">
-        <option value="">সব Specialty</option>
-        <option>Cardiologist</option><option>Dermatologist</option><option>Orthopedic Surgeon</option>
-        <option>Gynecologist</option><option>Neurologist</option><option>Pediatrician</option>
-        <option>General Physician</option><option>ENT Specialist</option><option>Ophthalmologist</option>
+        <option value="">বেছে নিন</option>
       </select>
       <button class="search-btn" onclick="handleSearch()">খুঁজুন</button>
     </div>
   </section>
 
-  <section class="section">
+  <div class="section">
     <div class="section-header">
       <h2 class="section-title">শীর্ষ <span>রেটেড</span> ডাক্তার</h2>
       <button class="view-all" onclick="showPage('doctors')">সব দেখুন →</button>
     </div>
     <div class="doctors-grid" id="featured-doctors"></div>
-  </section>
+  </div>
 
-  <section class="section" style="background:var(--navy);margin:0;padding:60px 5%">
+  <!-- Specialty-wise sections (Fix 5) -->
+  <div id="specialist-sections"></div>
+
     <div style="max-width:1100px;margin:0 auto">
-      <div class="section-header"><h2 class="section-title" style="color:white">কেন <span>DocReview BD</span>?</h2></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px">
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:24px;border:1px solid rgba(255,255,255,0.1)"><div style="font-size:2rem;margin-bottom:12px">🆔</div><h3 style="font-family:var(--font-head);font-size:1rem;color:white;margin-bottom:8px">Unique BMDC Verified</h3><p style="font-size:0.83rem;color:var(--gray-400)">প্রতিটি ডাক্তারের BMDC নম্বর unique — duplicate নেই</p></div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:24px;border:1px solid rgba(255,255,255,0.1)"><div style="font-size:2rem;margin-bottom:12px">📅</div><h3 style="font-family:var(--font-head);font-size:1rem;color:white;margin-bottom:8px">সহজ Appointment</h3><p style="font-size:0.83rem;color:var(--gray-400)">মাত্র কয়েক click-এ online appointment</p></div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:24px;border:1px solid rgba(255,255,255,0.1)"><div style="font-size:2rem;margin-bottom:12px">💬</div><h3 style="font-family:var(--font-head);font-size:1rem;color:white;margin-bottom:8px">সত্যিকারের Review</h3><p style="font-size:0.83rem;color:var(--gray-400)">শুধু verified রোগীরাই review দিতে পারেন</p></div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:14px;padding:24px;border:1px solid rgba(255,255,255,0.1)"><div style="font-size:2rem;margin-bottom:12px">📊</div><h3 style="font-family:var(--font-head);font-size:1rem;color:white;margin-bottom:8px">Smart Sort & Filter</h3><p style="font-size:0.83rem;color:var(--gray-400)">Rating বা fee অনুযায়ী ডাক্তার সাজিয়ে দেখুন</p></div>
+      <h2 class="section-title" style="text-align:center;margin-bottom:40px">কেন <span>DocReview BD</span>?</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:24px">
+        <div class="feature-card"><div class="feature-icon" style="background:rgba(14,165,233,0.1)">✅</div><h3>BMDC Verified</h3><p>প্রতিটি ডাক্তারের BMDC registration যাচাই করা হয়। Revoked BMDC account স্বয়ংক্রিয়ভাবে বন্ধ হয়।</p></div>
+        <div class="feature-card"><div class="feature-icon" style="background:rgba(16,185,129,0.1)">🔒</div><h3>Admin Verified Review</h3><p>রোগীর review Admin দ্বারা যাচাই হয়। Verified বা Fake badge দেখানো হয়।</p></div>
+        <div class="feature-card"><div class="feature-icon" style="background:rgba(245,158,11,0.1)">📧</div><h3>Email Verification</h3><p>Account তৈরিতে email OTP দিয়ে পরিচয় নিশ্চিত করা হয়।</p></div>
+        <div class="feature-card"><div class="feature-icon" style="background:rgba(139,92,246,0.1)">💬</div><h3>Doctor Reply</h3><p>ডাক্তার সরাসরি রোগীর review-এ reply দিতে পারেন।</p></div>
       </div>
     </div>
-  </section>
+  </div>
 </div>
 
-<!-- ========== DOCTORS PAGE ========== -->
 <div id="page-doctors" class="page">
-  <section class="section">
-    <div class="section-header"><h2 class="section-title">সব <span>ডাক্তার</span></h2></div>
-
-    <!-- Search -->
-    <div class="search-bar" style="margin-bottom:16px">
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">সব <span>ডাক্তার</span></h2>
+    </div>
+    <div class="search-bar" style="margin-bottom:20px">
       <div class="search-input-wrap">
         <span>🔍</span>
-        <input type="text" id="search-input-2" placeholder="নাম বা specialty..." onkeydown="if(event.key==='Enter') renderDoctorsPage({query:this.value})">
+        <input type="text" id="search-input-2" placeholder="নাম বা specialty..." onkeydown="if(event.key==='Enter')renderDoctorsPage({query:this.value})">
       </div>
-      <select class="search-select" id="search-specialty-2" style="height:48px">
-        <option value="">সব Specialty</option>
-        <option>Cardiologist</option><option>Dermatologist</option><option>Orthopedic Surgeon</option>
-        <option>Gynecologist</option><option>Neurologist</option><option>Pediatrician</option><option>General Physician</option>
+      <select class="search-select" id="search-district-2" onchange="renderDoctorsPage({district:this.value})">
+        <option value="">বেছে নিন</option>
       </select>
-      <select class="search-select" id="search-district-2" style="height:48px;min-width:130px" onchange="renderDoctorsPage({district:this.value})">
-        <option value="">সব জেলা</option>
-        <option>Dhaka</option><option>Chittagong</option><option>Sylhet</option><option>Rajshahi</option>
-        <option>Khulna</option><option>Barisal</option><option>Rangpur</option><option>Mymensingh</option>
-      </select>
-      <button class="search-btn" onclick="renderDoctorsPage({query:document.getElementById('search-input-2').value,specialty:document.getElementById('search-specialty-2').value})">খুঁজুন</button>
+      <button class="search-btn" onclick="renderDoctorsPage({query:document.getElementById('search-input-2').value})">খুঁজুন</button>
     </div>
-
-    <!-- Sort Options -->
     <div class="sort-bar">
       <span class="sort-label">সাজান:</span>
       <button class="sort-btn active" data-sort="rating" onclick="sortDoctors('rating')">⭐ Rating</button>
@@ -119,130 +98,204 @@
       <button class="sort-btn" data-sort="fee_high" onclick="sortDoctors('fee_high')">💰 বেশি Fee</button>
       <button class="sort-btn" data-sort="experience" onclick="sortDoctors('experience')">⏱️ অভিজ্ঞতা</button>
     </div>
-
     <div class="specialty-pills" id="specialty-pills"></div>
     <div class="doctors-grid" id="doctors-list"></div>
-  </section>
+  </div>
 </div>
 
-<!-- ========== DOCTOR PROFILE ========== -->
 <div id="page-doctor-profile" class="page">
   <div id="doctor-profile-content"></div>
 </div>
 
-<!-- ========== DASHBOARD ========== -->
-<div id="page-dashboard" class="page">
-  <div class="page-header section">
-    <h1 id="dash-welcome">Dashboard</h1>
-    <p>আপনার appointments ও reviews দেখুন</p>
-    <div class="stats-grid" style="margin-top:24px">
-      <div class="stat-card"><div class="stat-icon teal">📅</div><div><div class="stat-val" id="dash-appts-count">0</div><div class="stat-lbl">Appointments</div></div></div>
-      <div class="stat-card"><div class="stat-icon amber">⭐</div><div><div class="stat-val" id="dash-reviews-count">0</div><div class="stat-lbl">Reviews</div></div></div>
+<div id="page-patient-dashboard" class="page">
+  <div class="dash-layout">
+    <div class="dash-sidebar">
+      <div id="patient-dash-pic" style="margin-bottom:14px;text-align:center"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-family:var(--font-head);font-weight:700;color:var(--navy);font-size:1rem" id="patient-dash-name"></div>
+        <div style="font-size:0.78rem;color:var(--gray-400);margin-top:2px">🧑‍🤒 রোগী</div>
+      </div>
+      <nav class="dash-nav">
+        <button class="dash-nav-btn active" onclick="switchDashTab('pd-overview',this)">📊 Overview</button>
+        <button class="dash-nav-btn" onclick="switchDashTab('pd-reviews',this)">⭐ আমার Reviews</button>
+        <button class="dash-nav-btn" onclick="showPage('profile')">👤 Profile</button>
+        <button class="dash-nav-btn" onclick="showPage('settings')">⚙️ Settings</button>
+        <button class="dash-nav-btn danger" onclick="logout()">🚪 Logout</button>
+      </nav>
     </div>
-  </div>
-  <div class="section" style="padding-top:0">
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('tab-appts',this)">📅 Appointments</button>
-      <button class="tab-btn" onclick="switchTab('tab-reviews',this)">⭐ Reviews</button>
-    </div>
-    <div class="tab-content active" id="tab-appts"><div id="dash-appointments"></div></div>
-    <div class="tab-content" id="tab-reviews"><div id="dash-reviews"></div></div>
-    <div style="margin-top:24px">
-      <button class="btn-primary" onclick="showPage('doctors')" style="font-size:0.9rem">🔍 ডাক্তার খুঁজুন</button>
+    <div class="dash-main">
+      <div class="dash-tab active" id="pd-overview">
+        <h2 class="dash-heading">স্বাগতম, <span id="patient-dash-name2" style="color:var(--teal)"></span>! 👋</h2>
+        <div class="stats-grid" style="margin-bottom:28px">
+          <div class="stat-card"><div class="stat-icon amber">⭐</div><div><div class="stat-val" id="patient-dash-reviews">0</div><div class="stat-lbl">Reviews দিয়েছেন</div></div></div>
+          <div class="stat-card"><div class="stat-icon teal">📝</div><div><div class="stat-val" id="patient-review-remaining">20</div><div class="stat-lbl">এই মাসে বাকি review</div></div></div>
+        </div>
+        <div class="profile-card"><h3>আপনার তথ্য</h3><div id="patient-info-list"></div></div>
+        <div style="margin-top:16px">
+          <button class="btn-primary" onclick="showPage('doctors')" style="font-size:0.9rem">🔍 ডাক্তার খুঁজুন</button>
+        </div>
+      </div>
+      <div class="dash-tab" id="pd-reviews">
+        <h2 class="dash-heading">আমার Reviews</h2>
+        <div id="patient-reviews-list"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ========== ADMIN ========== -->
+<div id="page-doctor-dashboard" class="page">
+  <div class="dash-layout">
+    <div class="dash-sidebar">
+      <div id="doctor-dash-pic" style="margin-bottom:14px;text-align:center"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-family:var(--font-head);font-weight:700;color:var(--navy);font-size:0.95rem" id="doctor-dash-name"></div>
+        <div style="font-size:0.8rem;color:var(--teal);margin-top:2px" id="doctor-dash-specialty"></div>
+        <div style="font-size:0.72rem;color:var(--gray-400);margin-top:2px">BMDC: <span id="doctor-dash-bmdc"></span></div>
+      </div>
+      <nav class="dash-nav">
+        <button class="dash-nav-btn active" onclick="switchDashTab('dd-overview',this)">📊 Overview</button>
+        <button class="dash-nav-btn" onclick="switchDashTab('dd-reviews',this)">💬 প্রাপ্ত Reviews</button>
+        <button class="dash-nav-btn" onclick="showPage('profile')">👤 Profile</button>
+        <button class="dash-nav-btn" onclick="showPage('settings')">⚙️ Settings</button>
+        <button class="dash-nav-btn danger" onclick="logout()">🚪 Logout</button>
+      </nav>
+    </div>
+    <div class="dash-main">
+      <div class="dash-tab active" id="dd-overview">
+        <h2 class="dash-heading">Doctor Dashboard 👨‍⚕️</h2>
+        <div class="stats-grid" style="margin-bottom:28px">
+          <div class="stat-card"><div class="stat-icon amber">⭐</div><div><div class="stat-val" id="doctor-dash-rating">0</div><div class="stat-lbl">Rating</div></div></div>
+          <div class="stat-card"><div class="stat-icon teal">💬</div><div><div class="stat-val" id="doctor-dash-reviews-count">0</div><div class="stat-lbl">মোট Reviews</div></div></div>
+        </div>
+        <div class="profile-card"><h3>চেম্বার ও যোগাযোগ তথ্য</h3><div id="doctor-info-list"></div></div>
+        <div style="margin-top:16px"><button class="btn-primary" onclick="showPage('settings')" style="font-size:0.9rem">⚙️ Profile Edit করুন</button></div>
+      </div>
+      <div class="dash-tab" id="dd-reviews">
+        <h2 class="dash-heading">রোগীদের Reviews</h2>
+        <div id="doctor-reviews-received"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-profile" class="page">
+  <div id="profile-content"></div>
+</div>
+
+<div id="page-settings" class="page">
+  <div style="background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:40px 5%">
+    <h1 style="color:white;font-family:var(--font-head);font-size:1.6rem;font-weight:800">⚙️ Settings</h1>
+    <p style="color:rgba(255,255,255,0.5);margin-top:6px">আপনার account তথ্য পরিবর্তন করুন</p>
+  </div>
+  <div class="section" style="padding-top:32px"><div id="settings-content"></div></div>
+</div>
+
 <div id="page-admin" class="page">
-  <div class="page-header section">
-    <h1>⚙️ Admin Panel</h1>
-    <p>সব ডাক্তার, রোগী ও appointment পরিচালনা করুন</p>
-    <div class="stats-grid" style="margin-top:24px">
+  <div style="background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:40px 5%">
+    <h1 style="color:white;font-family:var(--font-head);font-size:1.6rem;font-weight:800">⚙️ Admin Panel</h1>
+    <p style="color:rgba(255,255,255,0.5);margin-top:6px">সব কিছু নিয়ন্ত্রণ করুন</p>
+    <div class="stats-grid" style="margin-top:24px;max-width:950px">
       <div class="stat-card"><div class="stat-icon teal">👨‍⚕️</div><div><div class="stat-val" id="admin-total-doctors">0</div><div class="stat-lbl">ডাক্তার</div></div></div>
       <div class="stat-card"><div class="stat-icon green">🧑‍🤝‍🧑</div><div><div class="stat-val" id="admin-total-patients">0</div><div class="stat-lbl">রোগী</div></div></div>
       <div class="stat-card"><div class="stat-icon amber">⭐</div><div><div class="stat-val" id="admin-total-reviews">0</div><div class="stat-lbl">Reviews</div></div></div>
-      <div class="stat-card"><div class="stat-icon red">📅</div><div><div class="stat-val" id="admin-total-appts">0</div><div class="stat-lbl">Appointments</div></div></div>
-      <div class="stat-card"><div class="stat-icon purple">👁️</div><div><div class="stat-val" id="admin-total-visits">0</div><div class="stat-lbl">Total Visits</div></div></div>
+      <div class="stat-card"><div class="stat-icon purple">👁️</div><div><div class="stat-val" id="admin-total-visits">0</div><div class="stat-lbl">Site Visits</div></div></div>
+      <div class="stat-card"><div class="stat-icon red">🕐</div><div><div class="stat-val" id="admin-pending-reviews">0</div><div class="stat-lbl">Pending Review</div></div></div>
     </div>
   </div>
-  <div class="section" style="padding-top:0">
+  <div class="section" style="padding-top:32px;max-width:1300px">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('tab-admin-doctors',this)">👨‍⚕️ ডাক্তার</button>
-      <button class="tab-btn" onclick="switchTab('tab-admin-appts',this)">📅 Appointments</button>
+      <button class="tab-btn" onclick="switchTab('tab-admin-users',this)">👥 Users</button>
+      <button class="tab-btn" onclick="switchTab('tab-admin-reviews',this)">💬 Reviews</button>
+      <button class="tab-btn" onclick="switchTab('tab-admin-bmdc',this)">🆔 BMDC Sync</button>
     </div>
     <div class="tab-content active" id="tab-admin-doctors">
-      <div style="margin-bottom:16px"><button class="btn-primary" onclick="openAddDoctorModal()" style="font-size:0.9rem;padding:10px 20px">+ নতুন ডাক্তার যোগ করুন</button></div>
+      <div style="margin-bottom:16px">
+        <button class="btn-primary" onclick="openAddDoctorModal()" style="font-size:0.88rem;padding:9px 18px">+ নতুন ডাক্তার যোগ করুন</button>
+      </div>
       <div id="admin-doctors-list"></div>
     </div>
-    <div class="tab-content" id="tab-admin-appts"><div id="admin-appts-list"></div></div>
+    <div class="tab-content" id="tab-admin-users">
+      <div id="admin-users-list"></div>
+    </div>
+    <div class="tab-content" id="tab-admin-reviews">
+      <div style="background:rgba(14,165,233,0.06);border:1px solid rgba(14,165,233,0.2);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:0.85rem;color:var(--gray-600)">
+        🔒 <strong>গোপনীয়তা নোট:</strong> রোগীর জমা দেওয়া ফাইল শুধুমাত্র এই Admin Panel-এ দেখা যাবে। অন্য কোনো user বা ডাক্তার দেখতে পাবেন না।
+      </div>
+      <div id="admin-reviews-list"></div>
+    </div>
+    <div class="tab-content" id="tab-admin-bmdc">
+      <div id="admin-bmdc-section"></div>
+    </div>
   </div>
 </div>
 
-<!-- FOOTER -->
 <footer>
   <div class="footer-top">
     <div>
       <div class="footer-brand">Doc<span>Review</span> BD</div>
-      <p class="footer-desc">বাংলাদেশে ডাক্তার খোঁজার ও review দেওয়ার সবচেয়ে বিশ্বস্ত platform।</p>
+      <p class="footer-desc">বাংলাদেশে ডাক্তার খোঁজার ও বিশ্বস্ত review দেওয়ার সেরা platform। BMDC-verified ডাক্তার, Admin-verified reviews।</p>
     </div>
     <div class="footer-links">
       <h4>Quick Links</h4>
       <ul>
-        <li><a href="#" onclick="showPage('home')">Home</a></li>
-        <li><a href="#" onclick="showPage('doctors')">সব ডাক্তার</a></li>
-        <li><a href="#" onclick="openModal('modal-login')">Login</a></li>
+        <li><a onclick="showPage('home')">Home</a></li>
+        <li><a onclick="showPage('doctors')">সব ডাক্তার</a></li>
+        <li><a onclick="openModal('modal-login')">Login</a></li>
+        <li><a onclick="openModal('modal-reg-choice')">Sign Up</a></li>
       </ul>
     </div>
     <div class="footer-links">
-      <h4>Specialty</h4>
+      <h4>তথ্য</h4>
       <ul>
-        <li><a href="#" onclick="filterDoctors('Cardiologist');showPage('doctors')">Cardiologist</a></li>
-        <li><a href="#" onclick="filterDoctors('Pediatrician');showPage('doctors')">Pediatrician</a></li>
-        <li><a href="#" onclick="filterDoctors('Dermatologist');showPage('doctors')">Dermatologist</a></li>
-        <li><a href="#" onclick="filterDoctors('Neurologist');showPage('doctors')">Neurologist</a></li>
+        <li><a>BMDC: www.bmdc.org.bd</a></li>
+        <li><a>Emergency: 999</a></li>
+        <li><a>Health Helpline: 16000</a></li>
       </ul>
     </div>
   </div>
-  <div class="footer-bottom">© 2025 DocReview BD · HTML + CSS + JavaScript + LocalStorage Database</div>
+  <div class="footer-bottom">© 2025 DocReview BD — সকল স্বত্ব সংরক্ষিত</div>
 </footer>
-
-<!-- ==================== MODALS ==================== -->
 
 <!-- LOGIN -->
 <div class="modal-overlay" id="modal-login">
   <div class="modal">
-    <div class="modal-header"><h2>🔐 Login</h2><button class="modal-close" onclick="closeModal('modal-login')">✕</button></div>
+    <div class="modal-header">
+      <h2>🔐 Login</h2>
+      <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
+    </div>
     <div class="modal-body">
       <form onsubmit="handleLogin(event)">
-        <div class="form-group"><label>Email</label><input class="form-control" type="email" id="login-email" placeholder="আপনার email" required></div>
-        <div class="form-group"><label>Password</label><input class="form-control" type="password" id="login-password" placeholder="••••••••" required></div>
+        <div class="form-group"><label>Email *</label><input class="form-control" type="email" id="login-email" placeholder="আপনার email" required></div>
+        <div class="form-group"><label>Password *</label><input class="form-control" type="password" id="login-password" placeholder="••••••••" required></div>
         <button class="btn-full" type="submit">Login করুন</button>
         <p class="form-link">Account নেই? <a onclick="closeModal('modal-login');openModal('modal-reg-choice')">Sign Up করুন</a></p>
-        <div style="margin-top:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;font-size:0.77rem;color:var(--gray-400)">
-          <strong>Demo:</strong> admin@docreview.com / admin123 &nbsp;|&nbsp; rahim@gmail.com / pass123
+        <div style="margin-top:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;font-size:0.75rem;color:var(--gray-400)">
+          📌 Demo রোগী: rahim@gmail.com / pass123
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- REGISTER CHOICE -->
+<!-- REG CHOICE -->
 <div class="modal-overlay" id="modal-reg-choice">
   <div class="modal">
-    <div class="modal-header"><h2>✨ Account তৈরি করুন</h2><button class="modal-close" onclick="closeModal('modal-reg-choice')">✕</button></div>
+    <div class="modal-header">
+      <h2>✨ Account তৈরি করুন</h2>
+      <button class="modal-close" onclick="closeModal('modal-reg-choice')">✕</button>
+    </div>
     <div class="modal-body">
-      <p style="font-size:0.9rem;color:var(--gray-600);margin-bottom:20px;text-align:center">আপনি কোন ধরনের account তৈরি করতে চান?</p>
       <div class="reg-choice-grid">
         <button class="reg-choice-btn" onclick="closeModal('modal-reg-choice');openModal('modal-reg-patient')">
           <span class="icon">🧑‍🤒</span>
-          <div class="title">রোগী (Patient)</div>
-          <div class="desc">ডাক্তার খুঁজুন, appointment নিন ও review দিন</div>
+          <div class="title">রোগী</div>
+          <div class="desc">ডাক্তার খুঁজুন ও review দিন</div>
         </button>
         <button class="reg-choice-btn" onclick="closeModal('modal-reg-choice');openModal('modal-reg-doctor');showDoctorStep(1)">
           <span class="icon">👨‍⚕️</span>
-          <div class="title">ডাক্তার (Doctor)</div>
-          <div class="desc">BMDC verified profile তৈরি করুন ও রোগীদের সাথে connect হন</div>
+          <div class="title">ডাক্তার</div>
+          <div class="desc">BMDC দিয়ে profile তৈরি করুন</div>
         </button>
       </div>
       <p class="form-link">আগেই account আছে? <a onclick="closeModal('modal-reg-choice');openModal('modal-login')">Login করুন</a></p>
@@ -252,8 +305,11 @@
 
 <!-- PATIENT REGISTER -->
 <div class="modal-overlay" id="modal-reg-patient">
-  <div class="modal">
-    <div class="modal-header"><h2>🧑‍🤒 Patient Account</h2><button class="modal-close" onclick="closeModal('modal-reg-patient')">✕</button></div>
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h2>🧑‍🤒 Patient Account</h2>
+      <button class="modal-close" onclick="closeModal('modal-reg-patient')">✕</button>
+    </div>
     <div class="modal-body">
       <form id="patient-reg-form" onsubmit="handlePatientRegister(event)">
         <div class="form-row">
@@ -265,7 +321,7 @@
           <div class="form-group"><label>Confirm Password *</label><input class="form-control" type="password" id="pat-confirm" placeholder="আবার দিন" required></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>মোবাইল নম্বর * <span style="font-size:0.75rem;color:var(--gray-400)">(unique)</span></label><input class="form-control" id="pat-phone" placeholder="01XXXXXXXXX" required></div>
+          <div class="form-group"><label>মোবাইল * (unique)</label><input class="form-control" id="pat-phone" placeholder="01XXXXXXXXX" required></div>
           <div class="form-group"><label>লিঙ্গ *</label>
             <select class="form-control" id="pat-gender" required>
               <option value="">বেছে নিন</option><option>Male</option><option>Female</option><option>Other</option>
@@ -276,22 +332,27 @@
           <div class="form-group"><label>বয়স</label><input class="form-control" type="number" id="pat-age" placeholder="বছর" min="1" max="120"></div>
           <div class="form-group"><label>Blood Group</label>
             <select class="form-control" id="pat-blood">
-              <option value="">বেছে নিন</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
+              <option value="">বেছে নিন</option>
+              <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+              <option>O+</option><option>O-</option><option>AB+</option><option>AB-</option>
             </select>
           </div>
         </div>
         <div class="form-group"><label>ঠিকানা</label><input class="form-control" id="pat-address" placeholder="এলাকা, জেলা"></div>
-        <button class="btn-full" type="submit">Account তৈরি করুন</button>
-        <p class="form-link">ডাক্তার? <a onclick="closeModal('modal-reg-patient');openModal('modal-reg-doctor');showDoctorStep(1)">Doctor account খুলুন</a></p>
+        <button class="btn-full" type="submit">পরবর্তী — Email Verify করুন →</button>
+        <p class="form-link"><a onclick="closeModal('modal-reg-patient');openModal('modal-login')">← Login করুন</a></p>
       </form>
     </div>
   </div>
 </div>
 
-<!-- DOCTOR REGISTER (MULTI-STEP) -->
+<!-- DOCTOR REGISTER -->
 <div class="modal-overlay" id="modal-reg-doctor">
-  <div class="modal" style="max-width:620px">
-    <div class="modal-header"><h2>👨‍⚕️ Doctor Account</h2><button class="modal-close" onclick="closeModal('modal-reg-doctor')">✕</button></div>
+  <div class="modal" style="max-width:660px">
+    <div class="modal-header">
+      <h2>👨‍⚕️ Doctor Account</h2>
+      <button class="modal-close" onclick="closeModal('modal-reg-doctor')">✕</button>
+    </div>
     <div class="modal-body">
       <div class="step-indicator">
         <div class="si active"><div class="snum">১</div><div>Account</div></div>
@@ -299,64 +360,164 @@
         <div class="si"><div class="snum">৩</div><div>Chamber</div></div>
       </div>
 
-      <!-- Step 1 -->
+      <!-- STEP 1 -->
       <div class="doc-step active" id="doc-step-1">
         <div class="form-row">
-          <div class="form-group"><label>পূর্ণ নাম (Dr. সহ) *</label><input class="form-control" id="doc-name" placeholder="Dr. আপনার নাম"></div>
+          <div class="form-group"><label>নাম (Dr. সহ) *</label><input class="form-control" id="doc-name" placeholder="Dr. আপনার নাম"></div>
           <div class="form-group"><label>Email *</label><input class="form-control" type="email" id="doc-email" placeholder="doctor@gmail.com"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Password *</label><input class="form-control" type="password" id="doc-password" placeholder="কমপক্ষে ৬ অক্ষর"></div>
-          <div class="form-group"><label>Confirm Password *</label><input class="form-control" type="password" id="doc-confirm" placeholder="আবার দিন"></div>
+          <div class="form-group"><label>Confirm *</label><input class="form-control" type="password" id="doc-confirm" placeholder="আবার দিন"></div>
         </div>
-        <div class="form-group"><label>মোবাইল নম্বর *</label><input class="form-control" id="doc-phone" placeholder="01XXXXXXXXX"></div>
+        <div class="form-row">
+          <div class="form-group"><label>মোবাইল *</label><input class="form-control" id="doc-phone" placeholder="01XXXXXXXXX"></div>
+          <div class="form-group"><label>লিঙ্গ *</label>
+            <select class="form-control" id="doc-gender-dr">
+              <option value="">বেছে নিন</option><option>Male</option><option>Female</option>
+            </select>
+          </div>
+        </div>
         <div class="step-nav"><button class="btn-next" onclick="doctorStep1Next()">পরবর্তী →</button></div>
       </div>
 
-      <!-- Step 2 -->
+      <!-- STEP 2 -->
       <div class="doc-step" id="doc-step-2">
-        <div class="form-group"><label>Specialty *</label>
-          <select class="form-control" id="doc-specialty">
-            <option value="">বেছে নিন</option>
-            <option>Cardiologist</option><option>Dermatologist</option><option>Orthopedic Surgeon</option>
-            <option>Gynecologist</option><option>Neurologist</option><option>Pediatrician</option>
-            <option>General Physician</option><option>ENT Specialist</option><option>Ophthalmologist</option>
-            <option>Psychiatrist</option><option>Urologist</option><option>Gastroenterologist</option>
-            <option>Endocrinologist</option><option>Oncologist</option><option>Nephrologist</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Degree/Qualification *</label><input class="form-control" id="doc-degree" placeholder="যেমন: MBBS, FCPS (Medicine), MD"></div>
         <div class="form-row">
-          <div class="form-group"><label>BMDC Registration No. * <span style="font-size:0.75rem;color:var(--gray-400)">(unique)</span></label><input class="form-control" id="doc-bmdc" placeholder="যেমন: A-12345"></div>
-          <div class="form-group"><label>অভিজ্ঞতা (বছর) *</label><input class="form-control" type="number" id="doc-experience" placeholder="বছর" min="0"></div>
+          <div class="form-group"><label>Specialty *</label>
+            <select class="form-control" id="doc-specialty">
+        <option value="">বেছে নিন</option>
+      </select>
+          </div>
+          <div class="form-group"><label>ডাক্তারের ধরন *</label>
+            <select class="form-control" id="doc-dr-type">
+              <option value="">বেছে নিন</option>
+              <option>Professor (অধ্যাপক)</option>
+              <option>Associate Professor (সহযোগী অধ্যাপক)</option>
+              <option>Assistant Professor (সহকারী অধ্যাপক)</option>
+              <option>Senior Consultant (সিনিয়র কনসালট্যান্ট)</option>
+              <option>Consultant (কনসালট্যান্ট)</option>
+              <option>Junior Consultant (জুনিয়র কনসালট্যান্ট)</option>
+              <option>Registrar (রেজিস্ট্রার)</option>
+              <option>Medical Officer (মেডিকেল অফিসার)</option>
+              <option>General Practitioner (সাধারণ চিকিৎসক)</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group"><label>নিজের সম্পর্কে লিখুন</label><textarea class="form-control" id="doc-about" rows="3" placeholder="আপনার বিশেষজ্ঞতা ও অভিজ্ঞতা..."></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>BMDC No. * (unique)</label><input class="form-control" id="doc-bmdc" placeholder="A-XXXXX"></div>
+          <div class="form-group"><label>অভিজ্ঞতা (বছর) *</label><input class="form-control" type="number" id="doc-experience" min="0" placeholder="বছর"></div>
+        </div>
+        <div class="form-group"><label>Medical College / বিশ্ববিদ্যালয় *</label>
+          <select class="form-control" id="doc-medical-college">
+        <option value="">Medical College বেছে নিন</option>
+      </select>
+        </div>
+
+        <!-- DEGREE BUILDER -->
+        <div class="form-group">
+          <label>একাডেমিক Degree * <span style="font-weight:400;color:var(--gray-400)">(একাধিক যোগ করা যাবে)</span></label>
+          <div class="degree-builder">
+            <div class="degree-builder-grid">
+              <div class="form-group" style="margin:0">
+                <label style="font-size:0.75rem">Degree</label>
+                <select class="form-control" id="degree-select"><option value="">বেছে নিন</option></select>
+              </div>
+              <div class="form-group" style="margin:0">
+                <label style="font-size:0.75rem">বিষয় (Subject)</label>
+                <select class="form-control" id="degree-subject"><option value="">বেছে নিন</option></select>
+              </div>
+              <div class="form-group" style="margin:0">
+                <label style="font-size:0.75rem">Institution</label>
+                <select class="form-control" id="degree-institution"><option value="">বেছে নিন</option></select>
+              </div>
+              <div class="form-group" style="margin:0">
+                <label style="font-size:0.75rem">পাসের বছর</label>
+                <input class="form-control" type="number" id="degree-year" placeholder="যেমন: 2010" min="1970" max="2030">
+              </div>
+            </div>
+            <button type="button" onclick="addDegree()" style="width:100%;padding:9px;border-radius:var(--radius-xs);background:var(--teal);color:white;font-size:0.85rem;font-weight:600;margin-top:6px">+ Degree যোগ করুন</button>
+            <div id="degrees-added" style="margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="form-group"><label>About <span style="font-weight:400;color:var(--gray-400)">(ঐচ্ছিক)</span></label>
+          <textarea class="form-control" id="doc-about" rows="3" placeholder="আপনার বিশেষজ্ঞতা সম্পর্কে লিখুন..."></textarea>
+        </div>
         <div class="step-nav">
-          <button class="btn-back" onclick="showDoctorStep(1)">← পেছনে</button>
-          <button class="btn-next" onclick="doctorStep2Next()">পরবর্তী →</button>
+          <button type="button" class="btn-back" onclick="showDoctorStep(1)">← পেছনে</button>
+          <button type="button" class="btn-next" onclick="doctorStep2Next()">পরবর্তী →</button>
         </div>
       </div>
 
-      <!-- Step 3 -->
+      <!-- STEP 3 -->
       <div class="doc-step" id="doc-step-3">
         <form onsubmit="handleDoctorRegister(event)">
-          <div class="form-group"><label>Hospital/Clinic *</label><input class="form-control" id="doc-hospital" placeholder="যেমন: Square Hospital, Dhaka" required></div>
-          <div class="form-group"><label>Chamber Address</label><input class="form-control" id="doc-chamber" placeholder="Chamber-এর পূর্ণ ঠিকানা"></div>
-          <div class="form-group"><label>Chamber সময়</label><input class="form-control" id="doc-chamber-time" placeholder="যেমন: Sat-Thu: 5PM-8PM"></div>
+          <div class="form-group"><label>বর্তমান কর্মস্থল / Hospital *</label>
+            <input class="form-control" id="doc-hospital" placeholder="যেমন: Dhaka Medical College Hospital" required>
+          </div>
+          <div class="form-group"><label>কোথায় রোগী দেখেন *</label>
+            <select class="form-control" id="doc-visit-location" required>
+              <option value="">বেছে নিন</option>
+              <option>সরকারি হাসপাতাল (Government Hospital)</option>
+              <option>বেসরকারি হাসপাতাল (Private Hospital)</option>
+              <option>ক্লিনিক (Clinic)</option>
+              <option>ডায়াগনস্টিক সেন্টার (Diagnostic Center)</option>
+              <option>নিজস্ব চেম্বার (Own Chamber)</option>
+              <option>অনলাইন / Telemedicine</option>
+              <option>বাড়িতে রোগী দেখেন (Home Visit)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Chamber ঠিকানা <span style="font-weight:400;color:var(--gray-400)">(ঐচ্ছিক)</span></label>
+            <input class="form-control" id="doc-chamber" placeholder="Chamber-এর সম্পূর্ণ ঠিকানা">
+          </div>
+          <div class="form-group"><label>কোন দিন রোগী দেখেন *</label>
+            <select class="form-control" id="doc-visit-days" required>
+              <option value="">বেছে নিন</option>
+              <option>শনি–বৃহস্পতি (Sat–Thu)</option>
+              <option>শনি–বুধ (Sat–Wed)</option>
+              <option>রবি–বৃহস্পতি (Sun–Thu)</option>
+              <option>সোম–শুক্র (Mon–Fri)</option>
+              <option>শুধু শুক্র–শনি (Fri–Sat only)</option>
+              <option>প্রতিদিন (Everyday)</option>
+              <option>Appointment অনুযায়ী (By Appointment)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>কখন রোগী দেখেন * <span style="font-weight:400;color:var(--gray-400)">(একাধিক বাছাই করা যাবে)</span></label>
+            <div class="visit-hours-grid">
+              <label><input type="checkbox" name="visit-hours" value="সকাল ৮টা–দুপুর ২টা"> সকাল ৮টা–দুপুর ২টা</label>
+              <label><input type="checkbox" name="visit-hours" value="দুপুর ২টা–বিকাল ৫টা"> দুপুর ২টা–বিকাল ৫টা</label>
+              <label><input type="checkbox" name="visit-hours" value="বিকাল ৪টা–রাত ৮টা"> বিকাল ৪টা–রাত ৮টা</label>
+              <label><input type="checkbox" name="visit-hours" value="বিকাল ৫টা–রাত ৯টা"> বিকাল ৫টা–রাত ৯টা</label>
+              <label><input type="checkbox" name="visit-hours" value="বিকাল ৬টা–রাত ১০টা"> বিকাল ৬টা–রাত ১০টা</label>
+              <label><input type="checkbox" name="visit-hours" value="সন্ধ্যা ৭টা–রাত ১০টা"> সন্ধ্যা ৭টা–রাত ১০টা</label>
+              <label><input type="checkbox" name="visit-hours" value="সারাদিন (Full Day)"> সারাদিন</label>
+              <label><input type="checkbox" name="visit-hours" value="Appointment অনুযায়ী"> Appointment</label>
+            </div>
+          </div>
+          <div class="form-group"><label>ভাষা (Languages)</label>
+            <select class="form-control" id="doc-languages">
+              <option value="">বেছে নিন</option>
+              <option>বাংলা</option>
+              <option>বাংলা, English</option>
+              <option>বাংলা, English, Hindi</option>
+              <option>বাংলা, Arabic</option>
+            </select>
+          </div>
           <div class="form-row">
             <div class="form-group"><label>জেলা *</label>
               <select class="form-control" id="doc-district" required>
-                <option value="">বেছে নিন</option>
-                <option>Dhaka</option><option>Chittagong</option><option>Sylhet</option><option>Rajshahi</option>
-                <option>Khulna</option><option>Barisal</option><option>Rangpur</option><option>Mymensingh</option>
-                <option>Comilla</option><option>Narayanganj</option><option>Gazipur</option>
-              </select>
+        <option value="">বেছে নিন</option>
+      </select>
             </div>
-            <div class="form-group"><label>Visit Fee (৳) *</label><input class="form-control" type="number" id="doc-fee" placeholder="টাকা" min="0" required></div>
+            <div class="form-group"><label>Visit Fee (৳) *</label>
+              <input class="form-control" type="number" id="doc-fee" min="0" placeholder="যেমন: 1500" required>
+            </div>
           </div>
           <div class="step-nav">
             <button type="button" class="btn-back" onclick="showDoctorStep(2)">← পেছনে</button>
-            <button type="submit" class="btn-next">Account তৈরি করুন ✓</button>
+            <button type="submit" class="btn-next">Email Verify করুন →</button>
           </div>
         </form>
       </div>
@@ -364,41 +525,15 @@
   </div>
 </div>
 
-<!-- BOOKING -->
-<div class="modal-overlay" id="modal-booking">
-  <div class="modal">
-    <div class="modal-header"><h2>📅 Appointment নিন</h2><button class="modal-close" onclick="closeModal('modal-booking')">✕</button></div>
-    <div class="modal-body">
-      <div style="background:var(--gray-50);border-radius:10px;padding:14px;margin-bottom:18px;border:1px solid var(--gray-200)">
-        <div style="font-weight:600" id="book-doctor-name"></div>
-        <div style="font-size:0.82rem;color:var(--gray-400);margin-top:2px" id="book-doctor-specialty"></div>
-        <div style="font-size:0.85rem;margin-top:4px">Fee: <strong style="color:var(--navy)" id="book-doctor-fee"></strong></div>
-      </div>
-      <form id="book-form">
-        <div class="form-row">
-          <div class="form-group"><label>তারিখ</label><input class="form-control" type="date" id="book-date" required></div>
-          <div class="form-group"><label>সময়</label>
-            <select class="form-control" id="book-time" required>
-              <option value="">বেছে নিন</option>
-              <option>9:00 AM</option><option>10:00 AM</option><option>11:00 AM</option>
-              <option>12:00 PM</option><option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option><option>5:00 PM</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group"><label>সমস্যার বিবরণ (ঐচ্ছিক)</label><textarea class="form-control" rows="3" placeholder="সমস্যা সংক্ষেপে লিখুন..."></textarea></div>
-        <button class="btn-full" type="submit">Appointment নিশ্চিত করুন</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- REVIEW -->
+<!-- REVIEW MODAL -->
 <div class="modal-overlay" id="modal-review">
   <div class="modal">
     <div class="modal-header"><h2>✍️ Review দিন</h2><button class="modal-close" onclick="closeModal('modal-review')">✕</button></div>
     <div class="modal-body">
+      <div style="font-size:0.82rem;color:var(--teal);margin-bottom:16px;background:rgba(14,165,233,0.06);padding:10px 14px;border-radius:8px" id="review-limit-info"></div>
       <form id="review-form">
-        <div class="form-group"><label>Rating দিন</label>
+        <div class="form-group">
+          <label>Rating দিন *</label>
           <div class="star-rating">
             <input type="radio" name="rating" id="s5" value="5"><label for="s5">★</label>
             <input type="radio" name="rating" id="s4" value="4"><label for="s4">★</label>
@@ -407,10 +542,47 @@
             <input type="radio" name="rating" id="s1" value="1"><label for="s1">★</label>
           </div>
         </div>
-        <div class="form-group"><label>আপনার মতামত</label><textarea class="form-control" id="review-comment" rows="4" placeholder="এই ডাক্তার সম্পর্কে আপনার অভিজ্ঞতা লিখুন..." required></textarea></div>
+        <div class="form-group">
+          <label>আপনার মতামত *</label>
+          <textarea class="form-control" id="review-comment" rows="4" placeholder="এই ডাক্তার সম্পর্কে আপনার অভিজ্ঞতা লিখুন..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Visit সংক্রান্ত ফাইল <span style="font-weight:400;color:var(--gray-400)">(ছবি বা PDF, সর্বোচ্চ ৫MB)</span></label>
+          <input class="form-control" type="file" id="review-file" accept="image/*,.pdf" style="padding:8px">
+          <div style="margin-top:8px;padding:10px 12px;background:rgba(14,165,233,0.05);border:1px solid rgba(14,165,233,0.15);border-radius:8px;font-size:0.78rem;color:var(--gray-600);line-height:1.6">
+            🔒 <strong>আপনার ফাইল সম্পূর্ণ নিরাপদ ও গোপনীয়।</strong> শুধুমাত্র Admin এটি দেখতে পারবেন — অন্য কোনো user বা ডাক্তার দেখতে পাবেন না। এটি সত্যিকারের visit যাচাই করতে ব্যবহার করা হয়।
+          </div>
+        </div>
         <button class="btn-full" type="submit">Review জমা দিন</button>
       </form>
     </div>
+  </div>
+</div>
+
+<!-- REPLY MODAL -->
+<div class="modal-overlay" id="modal-reply">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><h2>↩️ Reply দিন</h2><button class="modal-close" onclick="closeModal('modal-reply')">✕</button></div>
+    <div class="modal-body">
+      <form id="reply-form">
+        <div class="form-group">
+          <label>আপনার Reply *</label>
+          <textarea class="form-control" id="reply-text" rows="4" placeholder="এখানে reply লিখুন..." required></textarea>
+        </div>
+        <button class="btn-full" type="submit">Reply করুন</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN FILE VIEWER -->
+<div class="modal-overlay" id="modal-admin-file">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h2>📎 Review File — Admin Only</h2>
+      <button class="modal-close" onclick="closeModal('modal-admin-file')">✕</button>
+    </div>
+    <div class="modal-body"><div id="admin-file-viewer-content"></div></div>
   </div>
 </div>
 
@@ -424,44 +596,87 @@
           <div class="form-group"><label>নাম *</label><input class="form-control" id="add-name" placeholder="Dr. নাম" required></div>
           <div class="form-group"><label>Specialty *</label>
             <select class="form-control" id="add-specialty" required>
-              <option value="">বেছে নিন</option>
-              <option>Cardiologist</option><option>Dermatologist</option><option>Orthopedic Surgeon</option>
-              <option>Gynecologist</option><option>Neurologist</option><option>Pediatrician</option><option>General Physician</option>
-            </select>
+        <option value="">বেছে নিন</option>
+      </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Degree *</label><input class="form-control" id="add-degree" placeholder="MBBS, FCPS..." required></div>
-          <div class="form-group"><label>BMDC No. * (unique)</label><input class="form-control" id="add-bmdc" placeholder="A-XXXXX" required></div>
+          <div class="form-group"><label>Institution</label><input class="form-control" id="add-institution" placeholder="Dhaka Medical College"></div>
         </div>
-        <div class="form-group"><label>Hospital *</label><input class="form-control" id="add-hospital" placeholder="Hospital নাম, শহর" required></div>
-        <div class="form-group"><label>Chamber Address</label><input class="form-control" id="add-chamber" placeholder="Chamber ঠিকানা"></div>
         <div class="form-row">
-          <div class="form-group"><label>Chamber সময়</label><input class="form-control" id="add-chamber-time" placeholder="Sat-Thu: 5PM-8PM"></div>
+          <div class="form-group"><label>BMDC No. *</label><input class="form-control" id="add-bmdc" placeholder="A-XXXXX" required></div>
           <div class="form-group"><label>জেলা *</label>
             <select class="form-control" id="add-district" required>
-              <option value="">বেছে নিন</option>
-              <option>Dhaka</option><option>Chittagong</option><option>Sylhet</option><option>Rajshahi</option><option>Khulna</option>
-            </select>
+        <option value="">বেছে নিন</option>
+      </select>
           </div>
         </div>
+        <div class="form-group"><label>Hospital *</label><input class="form-control" id="add-hospital" required></div>
+        <div class="form-group"><label>Chamber ঠিকানা</label><input class="form-control" id="add-chamber"></div>
         <div class="form-row">
-          <div class="form-group"><label>অভিজ্ঞতা (বছর) *</label><input class="form-control" type="number" id="add-exp" min="0" required></div>
-          <div class="form-group"><label>Fee (৳) *</label><input class="form-control" type="number" id="add-fee" min="0" required></div>
+          <div class="form-group"><label>অভিজ্ঞতা (বছর)</label><input class="form-control" type="number" id="add-exp" min="0"></div>
+          <div class="form-group"><label>Fee (৳)</label><input class="form-control" type="number" id="add-fee" min="0"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Phone</label><input class="form-control" id="add-phone" placeholder="01XXXXXXXXX"></div>
-          <div class="form-group"><label>Email</label><input class="form-control" type="email" id="add-email" placeholder="doctor@email.com"></div>
+          <div class="form-group"><label>Phone</label><input class="form-control" id="add-phone"></div>
+          <div class="form-group"><label>Email</label><input class="form-control" type="email" id="add-email"></div>
         </div>
-        <div class="form-group"><label>About</label><textarea class="form-control" id="add-about" rows="3" placeholder="ডাক্তারের পরিচিতি..."></textarea></div>
+        <div class="form-group"><label>About</label><textarea class="form-control" id="add-about" rows="3"></textarea></div>
         <button class="btn-full" type="submit">ডাক্তার যোগ করুন</button>
       </form>
     </div>
   </div>
 </div>
 
+<!-- OTP VERIFY MODAL -->
+<div class="modal-overlay" id="modal-otp-verify">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>📧 Email Verify করুন</h2>
+      <button class="modal-close" onclick="closeModal('modal-otp-verify');clearInterval(_otpTimerInterval)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:2.8rem;margin-bottom:10px">📬</div>
+        <p style="font-size:0.9rem;color:var(--gray-600);line-height:1.6">নিচের email-এ একটি <strong>6-digit code</strong> পাঠানো হয়েছে:</p>
+        <div style="font-weight:700;color:var(--teal);font-size:0.95rem;margin-top:6px;word-break:break-all" id="otp-email-display"></div>
+      </div>
+      <div id="otp-demo-box" style="display:none;background:rgba(245,158,11,0.07);border:1.5px dashed rgba(245,158,11,0.4);border-radius:10px;padding:14px;text-align:center;margin-bottom:16px">
+        <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:6px" id="otp-demo-note"></div>
+        <div style="font-size:0.78rem;color:var(--gray-600);margin-bottom:8px">আপনার Verification Code:</div>
+        <div style="font-family:var(--font-head);font-size:2.2rem;font-weight:800;color:var(--accent);letter-spacing:8px" id="otp-demo-code">------</div>
+      </div>
+      <form id="otp-verify-form" onsubmit="handleOTPVerify(event)">
+        <div class="form-group">
+          <label style="text-align:center;display:block;margin-bottom:10px">6-digit Code লিখুন</label>
+          <input class="form-control" type="text" id="otp-code-input" maxlength="6" placeholder="_ _ _ _ _ _"
+            autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" required
+            style="text-align:center;font-size:1.8rem;font-family:var(--font-head);font-weight:800;letter-spacing:10px;padding:14px">
+        </div>
+        <div style="text-align:center;margin-bottom:16px">
+          <span style="font-size:0.82rem;color:var(--gray-400)">মেয়াদ শেষ হবে: </span>
+          <span id="otp-timer" style="font-family:var(--font-head);font-weight:700;color:var(--teal);font-size:0.95rem">10:00</span>
+        </div>
+        <button class="btn-full" type="submit">✅ Verify করুন</button>
+      </form>
+      <p style="text-align:center;margin-top:14px;font-size:0.83rem;color:var(--gray-400)">
+        Code পাননি?
+        <button onclick="resendOTP()" style="color:var(--teal);font-weight:600;font-size:0.83rem;text-decoration:underline">নতুন code পাঠান</button>
+      </p>
+      <div style="margin-top:14px;padding:10px 12px;background:var(--gray-50);border-radius:8px;font-size:0.76rem;color:var(--gray-400);line-height:1.7">
+        📌 Spam বা Junk folder-ও চেক করুন। Code ১০ মিনিটের মধ্যে ব্যবহার করুন।
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
 <div class="toast-container" id="toast-container"></div>
+
 <script src="js/database.js"></script>
+<script src="js/emailjs.js"></script>
+<script src="js/bd-data.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

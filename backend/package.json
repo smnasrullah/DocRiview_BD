@@ -1,0 +1,26 @@
+{
+  "name": "docreview-bd-backend",
+  "version": "2.0.0",
+  "description": "DocReview BD — Express + better-sqlite3 Backend (Upgraded)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0"
+  },
+  "keywords": ["docreview", "bangladesh", "healthcare", "express", "sqlite"],
+  "license": "ISC"
+}
