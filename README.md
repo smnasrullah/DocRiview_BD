@@ -1,22 +1,22 @@
 # DocReview BD
 
 ## Website 
-<img width="1280" height="720" alt="Slide4" src="https://github.com/user-attachments/assets/511cff7a-21c7-4b20-97f3-50691a195b27" />
-<img width="1280" height="720" alt="Slide21" src="https://github.com/user-attachments/assets/f3f63cdd-7ca4-47f2-8de1-603b2bb7ff75" />
-<img width="1280" height="720" alt="Slide20" src="https://github.com/user-attachments/assets/a0b123c9-a44f-4ba5-9b89-f3e7f5696245" />
-<img width="1280" height="720" alt="Slide19" src="https://github.com/user-attachments/assets/af29e930-380b-4d9c-9e74-e3bbdd910110" />
-<img width="1280" height="720" alt="Slide18" src="https://github.com/user-attachments/assets/5b78f6a6-e1a3-41c5-88ad-e008bc5b186e" />
-<img width="1280" height="720" alt="Slide17" src="https://github.com/user-attachments/assets/5622e4c3-b2a7-45cf-94bc-6e42248fc5b4" />
-<img width="1280" height="720" alt="Slide16" src="https://github.com/user-attachments/assets/7edeb529-3536-4e48-b78e-ba15dc31ef5a" />
-<img width="1280" height="720" alt="Slide15" src="https://github.com/user-attachments/assets/9ce41bc4-3d02-49fa-9ed7-4cc61d659cb0" />
-<img width="1280" height="720" alt="Slide14" src="https://github.com/user-attachments/assets/2071d14a-e335-410d-a96a-6f69365da13f" />
-<img width="1280" height="720" alt="Slide13" src="https://github.com/user-attachments/assets/c7703e9a-e61b-47d4-9528-985901d6d8c7" />
-<img width="1280" height="720" alt="Slide12" src="https://github.com/user-attachments/assets/397650c2-fbea-4586-b386-3a32b0c913af" />
-<img width="1280" height="720" alt="Slide11" src="https://github.com/user-attachments/assets/99649bcb-df53-4f3f-831e-6895a76a7e6a" />
-<img width="1280" height="720" alt="Slide10" src="https://github.com/user-attachments/assets/5dbf3eb7-1b33-4d11-806e-e4cb255215cc" />
-<img width="1280" height="720" alt="Slide9" src="https://github.com/user-attachments/assets/4cd5f75f-6e51-49ee-869f-30a4551d6626" />
-<img width="1280" height="720" alt="Slide8" src="https://github.com/user-attachments/assets/9fcb6e33-d73e-4018-ba0b-83f72e548654" />
-<img width="1280" height="720" alt="Slide7" src="https://github.com/user-attachments/assets/55ae1820-c50f-453d-892d-8a63f32b20cc" />
-<img width="1280" height="720" alt="Slide6" src="https://github.com/user-attachments/assets/e5054bf9-1b0b-4e8b-9e10-cb53f6d3034b" />
-<img width="1280" height="720" alt="Slide5" src="https://github.com/user-attachments/assets/a807fbe3-f437-4f7a-95ca-cb7746ecbac6" />
-<img width="1280" height="720" alt="Slide3" src="https://github.com/user-attachments/assets/567db46e-effa-4d7f-ba22-d1a6cbad339c" />
+<img width="1280" height="720" alt="Slide3" src="https://github.com/user-attachments/assets/b795c11f-349b-49ec-8a60-a05c2b4841a9" />
+<img width="1280" height="720" alt="Slide4" src="https://github.com/user-attachments/assets/1d619ec0-0e13-483e-b1f9-bf9c61d0d223" />
+<img width="1280" height="720" alt="Slide5" src="https://github.com/user-attachments/assets/0d5baafe-59e4-45b0-b73b-3af8796a1650" />
+<img width="1280" height="720" alt="Slide6" src="https://github.com/user-attachments/assets/e75eb847-4f81-4307-a3f0-3a91840975e3" />
+<img width="1280" height="720" alt="Slide7" src="https://github.com/user-attachments/assets/ebec8ad0-74c4-42a4-8e46-3c1522759375" />
+<img width="1280" height="720" alt="Slide8" src="https://github.com/user-attachments/assets/363a9b0d-16d6-497d-8478-2eb4fc7ecdb2" />
+<img width="1280" height="720" alt="Slide9" src="https://github.com/user-attachments/assets/b38a09ea-b591-4f7f-b15b-48dd6c064459" />
+<img width="1280" height="720" alt="Slide10" src="https://github.com/user-attachments/assets/40728cac-640f-4b04-9a3a-a5637f79907b" />
+<img width="1280" height="720" alt="Slide11" src="https://github.com/user-attachments/assets/dac146d9-66c2-410c-8c9d-930fd7b68126" />
+<img width="1280" height="720" alt="Slide12" src="https://github.com/user-attachments/assets/b405db9b-d4ff-41df-9d6c-fa7f8085242a" />
+<img width="1280" height="720" alt="Slide13" src="https://github.com/user-attachments/assets/3001704e-951d-4b76-a68e-eea25a162013" />
+<img width="1280" height="720" alt="Slide14" src="https://github.com/user-attachments/assets/52c7713c-e0e7-4d43-bff3-7fd80518daa2" />
+<img width="1280" height="720" alt="Slide15" src="https://github.com/user-attachments/assets/b2f8fdf2-8a01-4ed0-8950-cccbef0eed63" />
+<img width="1280" height="720" alt="Slide16" src="https://github.com/user-attachments/assets/3a60c7f0-c547-4159-91aa-5d03680decc6" />
+<img width="1280" height="720" alt="Slide17" src="https://github.com/user-attachments/assets/375d4295-6ce6-4977-b26e-70f368bcfb4c" />
+<img width="1280" height="720" alt="Slide18" src="https://github.com/user-attachments/assets/07572d76-223c-4eb2-a1f1-c308cc735214" />
+<img width="1280" height="720" alt="Slide19" src="https://github.com/user-attachments/assets/aa0cad38-31d4-4788-83b8-f0150b400182" />
+<img width="1280" height="720" alt="Slide20" src="https://github.com/user-attachments/assets/000af43e-e47b-4d76-a432-0874d80865e1" />
+<img width="1280" height="720" alt="Slide21" src="https://github.com/user-attachments/assets/e20969ae-5722-4e79-ba17-b48fb304a57f" />
