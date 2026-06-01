@@ -1,273 +1,359 @@
 'use strict';
 
-const path   = require('path');
-const fs     = require('fs');
-const bcrypt = require('bcryptjs');
+// ============================================================
+// db.js  —  DocReview BD  |  Microsoft SQL Server Edition
+// ============================================================
+// SQLite (better-sqlite3) → Microsoft SQL Server (mssql)
+//
+// server.js calls DB functions synchronously — we use
+// deasync to wrap all async MSSQL calls into sync functions
+// so server.js remains 100% unchanged.
+//
+// Encryption: AES-256-GCM at-rest (identical to SQLite version)
+//   Encrypted : name, email, phone, address, blood_group,
+//               gender, age, profile_pic, doctor phone/email,
+//               review patient_name, comment, file_data/name,
+//               banned_phone
+//   Plain     : specialty, hospital, about, rating, district,
+//               bmdc, degrees (JSON), replies (JSON), etc.
+//   Passwords : bcrypt (one-way, separate)
+// ============================================================
 
-let Database;
-try { Database = require('better-sqlite3'); }
-catch { console.error('[DB] Run: npm install'); process.exit(1); }
+const crypto  = require('crypto');
+const bcrypt  = require('bcryptjs');
+// deasync removed — not compatible with Node v24
 
-const DB_PATH    = path.join(__dirname, 'data', 'docreview.db');
-const SALT       = 12;
-const PAGE_SIZE  = 20;
+let sql;
+try { sql = require('mssql'); }
+catch { console.error('[DB] Missing: npm install mssql deasync'); process.exit(1); }
 
-let db = null;
+// ── Constants ─────────────────────────────────────────────────
+const SALT      = 12;
+const PAGE_SIZE = 20;
 
-async function initDB() {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// ── SQL Server config (from .env) ────────────────────────────
+const SQL_CONFIG = {
+  server:   process.env.DB_SERVER   || 'localhost',
+  port:     parseInt(process.env.DB_PORT || '1433'),
+  database: process.env.DB_NAME     || 'docreview_bd',
+  user:     process.env.DB_USER     || 'sa',
+  password: process.env.DB_PASSWORD || '',
+  options: {
+    encrypt:                process.env.DB_ENCRYPT     === 'true',   // true for Azure
+    trustServerCertificate: process.env.DB_TRUST_CERT  !== 'false',  // true for local/self-signed
+    enableArithAbort:       true,
+    connectTimeout:         30000,
+    requestTimeout:         30000,
+  },
+  pool: { max: 10, min: 2, idleTimeoutMillis: 30000 },
+};
 
-  db = new Database(DB_PATH);
+// ── Encryption ───────────────────────────────────────────────
+const ENC_KEY = (() => {
+  const h = process.env.ENC_KEY;
+  if (h && /^[0-9a-fA-F]{64}$/.test(h)) return Buffer.from(h, 'hex');
+  return crypto.createHash('sha256')
+    .update(process.env.ENC_KEY || 'docreview_bd_CHANGE_IN_PRODUCTION_ENVIRONMENT_KEY_32b!')
+    .digest();
+})();
 
-  db.pragma('journal_mode  = WAL');
-  db.pragma('synchronous   = NORMAL');
-  db.pragma('foreign_keys  = ON');
-  db.pragma('temp_store    = MEMORY');
-  db.pragma('cache_size    = -32000');
-  db.pragma('mmap_size     = 268435456');
-  db.pragma('wal_autocheckpoint = 1000');
+const ALGO   = 'aes-256-gcm';
+const IV_LEN = 12;
 
-  _schema();
-  _seed();
-  console.log('[DB] better-sqlite3 ready →', DB_PATH);
-  return db;
+function enc(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const iv = crypto.randomBytes(IV_LEN);
+  const c  = crypto.createCipheriv(ALGO, ENC_KEY, iv);
+  const ct = Buffer.concat([c.update(String(v), 'utf8'), c.final()]);
+  const tg = c.getAuthTag();
+  return iv.toString('hex') + ':' + tg.toString('hex') + ':' + ct.toString('hex');
 }
 
-function _schema() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      name           TEXT NOT NULL,
-      email          TEXT NOT NULL COLLATE NOCASE,
-      password       TEXT NOT NULL,
-      role           TEXT NOT NULL DEFAULT 'patient' CHECK(role IN ('admin','patient','doctor')),
-      avatar         TEXT,
-      joined         TEXT DEFAULT (date('now')),
-      phone          TEXT,
-      gender         TEXT,
-      age            INTEGER,
-      blood_group    TEXT,
-      address        TEXT,
-      profile_pic    TEXT,
-      banned         INTEGER NOT NULL DEFAULT 0,
-      ban_reason     TEXT,
-      banned_at      TEXT,
-      email_verified INTEGER NOT NULL DEFAULT 0,
-      device_fp      TEXT,
-      network_hint   TEXT,
-      deleted        INTEGER NOT NULL DEFAULT 0,
-      deleted_at     TEXT
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE deleted=0;
-    CREATE INDEX IF NOT EXISTS ix_users_role  ON users(role);
-    CREATE INDEX IF NOT EXISTS ix_users_phone ON users(phone) WHERE role='patient';
-
-    CREATE TABLE IF NOT EXISTS doctors (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      name           TEXT NOT NULL,
-      specialty      TEXT,
-      degrees        TEXT DEFAULT '[]',
-      bmdc           TEXT,
-      bmdc_verified  INTEGER DEFAULT 1,
-      bmdc_suspended INTEGER DEFAULT 0,
-      hospital       TEXT,
-      chamber        TEXT,
-      chamber_time   TEXT,
-      visit_location TEXT,
-      visit_days     TEXT,
-      visit_hours    TEXT DEFAULT '[]',
-      district       TEXT,
-      experience     INTEGER DEFAULT 0,
-      fee            INTEGER DEFAULT 0,
-      rating         REAL DEFAULT 0.0,
-      reviews_count  INTEGER DEFAULT 0,
-      available      INTEGER DEFAULT 1,
-      phone          TEXT,
-      email          TEXT,
-      about          TEXT,
-      dr_type        TEXT,
-      medical_college TEXT,
-      languages      TEXT,
-      gender         TEXT,
-      profile_pic    TEXT,
-      deleted        INTEGER NOT NULL DEFAULT 0,
-      deleted_at     TEXT
-    );
-    CREATE INDEX IF NOT EXISTS ix_doc_specialty ON doctors(specialty) WHERE deleted=0;
-    CREATE INDEX IF NOT EXISTS ix_doc_district  ON doctors(district)  WHERE deleted=0;
-    CREATE INDEX IF NOT EXISTS ix_doc_rating    ON doctors(rating DESC) WHERE deleted=0;
-
-    CREATE VIRTUAL TABLE IF NOT EXISTS doctors_fts USING fts5(
-      doctor_id UNINDEXED, name, specialty, about,
-      content='doctors', content_rowid='id'
-    );
-
-    CREATE TABLE IF NOT EXISTS reviews (
-      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-      doctor_id           INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-      patient_id          INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
-      patient_name        TEXT,
-      rating              INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
-      comment             TEXT,
-      date                TEXT DEFAULT (date('now')),
-      helpful             INTEGER DEFAULT 0,
-      replies             TEXT DEFAULT '[]',
-      verification_status TEXT DEFAULT 'pending'
-                          CHECK(verification_status IN ('pending','verified','flagged','removed')),
-      file_ref            INTEGER,
-      device_fp           TEXT,
-      network_hint        TEXT,
-      UNIQUE(doctor_id, patient_id)
-    );
-    CREATE INDEX IF NOT EXISTS ix_rev_doctor  ON reviews(doctor_id, date DESC);
-    CREATE INDEX IF NOT EXISTS ix_rev_patient ON reviews(patient_id, date DESC);
-
-    CREATE TABLE IF NOT EXISTS review_files (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-      file_data TEXT NOT NULL,
-      file_name TEXT,
-      mime_type TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS bmdc_revoked (
-      bmdc       TEXT PRIMARY KEY COLLATE NOCASE,
-      revoked_at TEXT DEFAULT (datetime('now')),
-      reason     TEXT
-    );
-    CREATE TABLE IF NOT EXISTS bmdc_sync_log (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      date            TEXT,
-      revoked_checked INTEGER DEFAULT 0,
-      suspended       INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS banned_phones (
-      phone     TEXT PRIMARY KEY,
-      banned_at TEXT DEFAULT (datetime('now')),
-      reason    TEXT
-    );
-    CREATE TABLE IF NOT EXISTS banned_devices (
-      device_fp TEXT PRIMARY KEY,
-      banned_at TEXT DEFAULT (datetime('now')),
-      reason    TEXT
-    );
-    CREATE TABLE IF NOT EXISTS banned_networks (
-      network_hint TEXT PRIMARY KEY,
-      banned_at    TEXT DEFAULT (datetime('now')),
-      reason       TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_log (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      ts          TEXT NOT NULL DEFAULT (datetime('now')),
-      actor_id    INTEGER,
-      actor_role  TEXT,
-      action      TEXT NOT NULL,
-      target_type TEXT,
-      target_id   INTEGER,
-      detail      TEXT
-    );
-    CREATE INDEX IF NOT EXISTS ix_audit_ts ON audit_log(ts DESC);
-
-    CREATE TABLE IF NOT EXISTS otp_store (
-      email    TEXT PRIMARY KEY COLLATE NOCASE,
-      code     TEXT NOT NULL,
-      expires  INTEGER NOT NULL,
-      attempts INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS site_meta (
-      key   TEXT PRIMARY KEY,
-      value TEXT
-    );
-  `);
+function dec(v) {
+  if (!v) return null;
+  try {
+    const [ivH, tgH, ctH] = v.split(':');
+    if (!ivH || !tgH || !ctH) return v;
+    const d = crypto.createDecipheriv(ALGO, ENC_KEY, Buffer.from(ivH, 'hex'));
+    d.setAuthTag(Buffer.from(tgH, 'hex'));
+    return Buffer.concat([d.update(Buffer.from(ctH, 'hex')), d.final()]).toString('utf8');
+  } catch { return null; }
 }
 
-function _seed() {
-  const cnt = _get("SELECT COUNT(*) AS c FROM users WHERE deleted=0").c;
-  if (cnt > 0) return;
+const E = v => (v !== null && v !== undefined && v !== '') ? enc(String(v)) : null;
+const D = v => v ? dec(v) : null;
 
-  db.transaction(() => {
-    const adminHash = bcrypt.hashSync('Adm!n@DocR3v!3w2025#BD', SALT);
-    const p123 = bcrypt.hashSync('pass123', SALT);
+// syncify removed — all methods now exported as async directly
 
-    _run("INSERT INTO users(name,email,password,role,avatar,joined,banned,email_verified) VALUES(?,?,?,'admin','AD','2024-01-01',0,1)",
-      ['Admin','docreviewbd.admin@system.bd',adminHash]);
-    _run("INSERT INTO users(name,email,password,role,avatar,joined,phone,blood_group,age,gender,address,banned,email_verified) VALUES(?,?,?,'patient','RH','2024-02-10','01711234567','B+',35,'Male','Mirpur, Dhaka',0,1)",
-      ['Rahim Hossain','rahim@gmail.com',p123]);
-    _run("INSERT INTO users(name,email,password,role,avatar,joined,phone,blood_group,age,gender,address,banned,email_verified) VALUES(?,?,?,'patient','FB','2024-03-05','01822345678','O+',28,'Female','Dhanmondi, Dhaka',0,1)",
-      ['Fatema Begum','fatema@gmail.com',p123]);
+// ── Pool ──────────────────────────────────────────────────────
+let pool = null;
 
-    const docs = [
-      { name:'Dr. Arif Ahmed',    specialty:'Cardiologist (হৃদরোগ)',        bmdc:'A-12345', hospital:'Square Hospital, Dhaka',          chamber:'Square Hospital, 18/F West Panthapath', days:'Sat-Thu', hours:'6PM-9PM', dist:'Dhaka', exp:15, fee:1500, rat:4.8, cnt:124, type:'Senior Consultant', col:'Dhaka Medical College', gen:'Male',
-        degrees:[{degree:'MBBS',institution:'Dhaka Medical College',year:2002},{degree:'MD (Cardiology)',institution:'BSMMU',year:2007},{degree:'FCPS',institution:'BCPS',year:2009}],
-        about:'Specialist in heart diseases with 15 years of experience. Expert in interventional cardiology.' },
-      { name:'Dr. Nasrin Islam',  specialty:'Dermatologist (চর্মরোগ)',       bmdc:'A-23456', hospital:'United Hospital, Dhaka',           chamber:'United Hospital, Plot 15, Road 71, Gulshan', days:'Sun-Thu', hours:'5PM-8PM', dist:'Dhaka', exp:10, fee:1200, rat:4.6, cnt:89,  type:'Consultant',       col:'Chittagong Medical College', gen:'Female',
-        degrees:[{degree:'MBBS',institution:'Chittagong Medical College',year:2006},{degree:'DDV',institution:'BSMMU',year:2010},{degree:'FCPS (Dermatology)',institution:'BCPS',year:2013}],
-        about:'Expert in skin diseases, laser treatment and cosmetic dermatology.' },
-      { name:'Dr. Karim Uddin',   specialty:'Orthopedic Surgeon (অস্থি ও জোড়া)', bmdc:'A-34567', hospital:'Labaid Hospital, Dhaka',     chamber:'Labaid Specialized Hospital, Dhanmondi',   days:'Sat-Wed', hours:'4PM-7PM', dist:'Dhaka', exp:20, fee:2000, rat:4.9, cnt:203, type:'Professor',         col:'Rajshahi Medical College',   gen:'Male',
-        degrees:[{degree:'MBBS',institution:'Rajshahi Medical College',year:2000},{degree:'MS (Orthopedics)',institution:'BSMMU',year:2006},{degree:'FCPS (Surgery)',institution:'BCPS',year:2008}],
-        about:'Senior orthopedic surgeon specializing in joint replacement and spine surgery. 3000+ successful surgeries.' },
-      { name:'Dr. Shamima Akter', specialty:'Gynecologist (স্ত্রীরোগ)',        bmdc:'A-45678', hospital:'Anwer Khan Modern Hospital, Dhaka', chamber:'Anwer Khan Modern Hospital, Dhanmondi',   days:'Mon-Thu', hours:'5PM-8PM', dist:'Dhaka', exp:12, fee:1300, rat:4.7, cnt:156, type:'Associate Professor', col:'Mymensingh Medical College',  gen:'Female',
-        degrees:[{degree:'MBBS',institution:'Mymensingh Medical College',year:2004},{degree:'FCPS (Gynecology)',institution:'BCPS',year:2010},{degree:'MS (Obs & Gynae)',institution:'BSMMU',year:2012}],
-        about:"Women's health specialist. Expert in high-risk pregnancy and laparoscopic surgery." },
-      { name:'Dr. Rafiqul Islam', specialty:'Neurologist (স্নায়বিক)',          bmdc:'A-56789', hospital:'BIRDEM General Hospital, Dhaka', chamber:'BIRDEM General Hospital, Shahbag',          days:'Sun-Thu', hours:'3PM-6PM', dist:'Dhaka', exp:18, fee:1800, rat:4.5, cnt:97,  type:'Senior Consultant', col:'Sir Salimullah Medical College', gen:'Male',
-        degrees:[{degree:'MBBS',institution:'Sir Salimullah Medical College',year:2001},{degree:'MD (Neurology)',institution:'BSMMU',year:2007},{degree:'FCPS',institution:'BCPS',year:2010}],
-        about:'Expert in brain and nervous system disorders, stroke management and epilepsy treatment.' },
-      { name:'Dr. Sumaiya Khan',  specialty:'Pediatrician (শিশুরোগ)',         bmdc:'A-67890', hospital:'Dhaka Shishu Hospital',           chamber:'Dhaka Shishu Hospital, Sher-e-Bangla Nagar', days:'Sat-Thu', hours:'8AM-2PM', dist:'Dhaka', exp:8,  fee:1000, rat:4.8, cnt:178, type:'Consultant',       col:'Dhaka Medical College',      gen:'Female',
-        degrees:[{degree:'MBBS',institution:'Dhaka Medical College',year:2008},{degree:'DCH',institution:'BCPS',year:2011},{degree:'FCPS (Pediatrics)',institution:'BCPS',year:2014}],
-        about:'Child health specialist. Expert in newborn care, vaccinations and childhood diseases.' },
-    ];
-
-    const ins = db.prepare(`
-      INSERT INTO doctors(name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,chamber_time,
-        visit_location,visit_days,visit_hours,district,experience,fee,rating,reviews_count,
-        phone,email,about,dr_type,medical_college,gender,languages,available,deleted)
-      VALUES(?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0)
-    `);
-
-    for (const d of docs) {
-      const r = ins.run(d.name, d.specialty, JSON.stringify(d.degrees), d.bmdc,
-        d.hospital, d.chamber, `${d.days}: ${d.hours}`, 'Private Hospital',
-        d.days, JSON.stringify([d.hours]), d.dist, d.exp, d.fee, d.rat, d.cnt,
-        '', '', d.about, d.type, d.col, d.gen, 'বাংলা, English');
-      _run("INSERT INTO doctors_fts(doctor_id,name,specialty,about) VALUES(?,?,?,?)",
-        [r.lastInsertRowid, d.name, d.specialty, d.about]);
-    }
-
-    const ir = db.prepare(`INSERT INTO reviews(doctor_id,patient_id,patient_name,rating,comment,date,helpful,replies,verification_status) VALUES(?,?,?,?,?,?,?,?,?)`);
-    ir.run(1,2,'Rahim Hossain',5,'Excellent doctor! Very attentive. Highly recommended.','2024-11-15',12,'[]','verified');
-    ir.run(1,3,'Fatema Begum',4,'Good experience. Very knowledgeable.','2024-12-01',7,'[]','verified');
-    ir.run(2,2,'Rahim Hossain',5,'Dr. Nasrin is amazing! Skin improved drastically.','2024-10-20',20,'[]','verified');
-    ir.run(3,3,'Fatema Begum',5,'Best orthopedic surgeon in Bangladesh.','2024-09-12',15,'[]','verified');
-    ir.run(5,2,'Rahim Hossain',4,'Very thorough in diagnosis.','2025-01-05',8,'[]','verified');
-
-    _run("INSERT OR IGNORE INTO site_meta(key,value) VALUES('site_visits','0')");
-    _run("INSERT OR IGNORE INTO site_meta(key,value) VALUES('version','2.0.0')");
-  })();
-
-  console.log('[DB] Seed inserted');
+async function _getPool() {
+  if (!pool) throw new Error('[DB] Pool not initialized. Call initDB() first.');
+  return pool;
 }
 
-const _stmts = new Map();
-function _s(sql) {
-  if (!_stmts.has(sql)) _stmts.set(sql, db.prepare(sql));
-  return _stmts.get(sql);
+// ── Async query helpers ───────────────────────────────────────
+async function _query(sqlStr, params = {}) {
+  const p   = await _getPool();
+  const req = p.request();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === null || v === undefined)          req.input(k, sql.NVarChar,          null);
+    else if (Number.isInteger(v))               req.input(k, sql.Int,               v);
+    else if (typeof v === 'number')             req.input(k, sql.Float,             v);
+    else if (typeof v === 'bigint')             req.input(k, sql.BigInt,            v);
+    else                                        req.input(k, sql.NVarChar(sql.MAX), String(v));
+  }
+  return req.query(sqlStr);
 }
-function _get(sql, ...p)  { return _s(sql).get(...p); }
-function _all(sql, ...p)  { return _s(sql).all(...p); }
-function _run(sql, p = []) { return db.prepare(sql).run(...p); }
 
+async function _get(s, p = {})  { return (await _query(s, p)).recordset[0] || null; }
+async function _all(s, p = {})  { return (await _query(s, p)).recordset; }
+async function _run(s, p = {})  { const r = await _query(s, p); return { rowsAffected: r.rowsAffected[0] || 0, lastId: r.recordset?.[0]?.new_id || null }; }
+
+// ── Schema ────────────────────────────────────────────────────
+async function _schema() {
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='users' AND xtype='U')
+  CREATE TABLE users (
+    id             INT IDENTITY(1,1) PRIMARY KEY,
+    name           NVARCHAR(MAX) NOT NULL,
+    email          NVARCHAR(MAX) NOT NULL,
+    password       NVARCHAR(MAX) NOT NULL,
+    role           NVARCHAR(10)  NOT NULL DEFAULT 'patient'
+                   CHECK(role IN ('admin','patient','doctor')),
+    avatar         NVARCHAR(10),
+    joined         NVARCHAR(20)  DEFAULT CONVERT(NVARCHAR,GETDATE(),23),
+    phone          NVARCHAR(MAX),
+    gender         NVARCHAR(MAX),
+    age            NVARCHAR(MAX),
+    blood_group    NVARCHAR(MAX),
+    address        NVARCHAR(MAX),
+    profile_pic    NVARCHAR(MAX),
+    banned         INT           NOT NULL DEFAULT 0,
+    ban_reason     NVARCHAR(100),
+    banned_at      NVARCHAR(30),
+    email_verified INT           NOT NULL DEFAULT 0,
+    device_fp      NVARCHAR(500),
+    network_hint   NVARCHAR(100),
+    deleted        INT           NOT NULL DEFAULT 0,
+    deleted_at     NVARCHAR(30)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_users_role' AND object_id=OBJECT_ID('users'))
+    CREATE INDEX ix_users_role ON users(role) WHERE deleted=0`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='doctors' AND xtype='U')
+  CREATE TABLE doctors (
+    id              INT IDENTITY(1,1) PRIMARY KEY,
+    user_id         INT REFERENCES users(id) ON DELETE SET NULL,
+    name            NVARCHAR(300)  NOT NULL,
+    specialty       NVARCHAR(200),
+    degrees         NVARCHAR(MAX)  DEFAULT '[]',
+    bmdc            NVARCHAR(50),
+    bmdc_verified   INT DEFAULT 1,
+    bmdc_suspended  INT DEFAULT 0,
+    hospital        NVARCHAR(400),
+    chamber         NVARCHAR(400),
+    chamber_time    NVARCHAR(200),
+    visit_location  NVARCHAR(200),
+    visit_days      NVARCHAR(200),
+    visit_hours     NVARCHAR(MAX)  DEFAULT '[]',
+    district        NVARCHAR(100),
+    experience      INT DEFAULT 0,
+    fee             INT DEFAULT 0,
+    rating          FLOAT DEFAULT 0.0,
+    reviews_count   INT DEFAULT 0,
+    available       INT DEFAULT 1,
+    phone           NVARCHAR(MAX),
+    email           NVARCHAR(MAX),
+    about           NVARCHAR(MAX),
+    dr_type         NVARCHAR(100),
+    medical_college NVARCHAR(200),
+    languages       NVARCHAR(200),
+    gender          NVARCHAR(30),
+    profile_pic     NVARCHAR(MAX),
+    deleted         INT NOT NULL DEFAULT 0,
+    deleted_at      NVARCHAR(30)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_doc_specialty' AND object_id=OBJECT_ID('doctors'))
+    CREATE INDEX ix_doc_specialty ON doctors(specialty) WHERE deleted=0`);
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_doc_district' AND object_id=OBJECT_ID('doctors'))
+    CREATE INDEX ix_doc_district ON doctors(district) WHERE deleted=0`);
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_doc_rating' AND object_id=OBJECT_ID('doctors'))
+    CREATE INDEX ix_doc_rating ON doctors(rating DESC) WHERE deleted=0`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='reviews' AND xtype='U')
+  CREATE TABLE reviews (
+    id                  INT IDENTITY(1,1) PRIMARY KEY,
+    doctor_id           INT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    patient_id          INT NOT NULL REFERENCES users(id)   ON DELETE NO ACTION,
+    patient_name        NVARCHAR(MAX),
+    rating              INT NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    comment             NVARCHAR(MAX),
+    date                NVARCHAR(20) DEFAULT CONVERT(NVARCHAR,GETDATE(),23),
+    helpful             INT DEFAULT 0,
+    replies             NVARCHAR(MAX) DEFAULT '[]',
+    verification_status NVARCHAR(20)  DEFAULT 'pending'
+                        CHECK(verification_status IN ('pending','verified','flagged','removed')),
+    file_ref            INT,
+    device_fp           NVARCHAR(500),
+    network_hint        NVARCHAR(100),
+    CONSTRAINT uq_review UNIQUE(doctor_id, patient_id)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_rev_doctor' AND object_id=OBJECT_ID('reviews'))
+    CREATE INDEX ix_rev_doctor ON reviews(doctor_id, date DESC)`);
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_rev_patient' AND object_id=OBJECT_ID('reviews'))
+    CREATE INDEX ix_rev_patient ON reviews(patient_id, date DESC)`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='review_files' AND xtype='U')
+  CREATE TABLE review_files (
+    id        INT IDENTITY(1,1) PRIMARY KEY,
+    review_id INT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+    file_data NVARCHAR(MAX) NOT NULL,
+    file_name NVARCHAR(MAX),
+    mime_type NVARCHAR(100)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='bmdc_revoked' AND xtype='U')
+  CREATE TABLE bmdc_revoked (
+    bmdc       NVARCHAR(50)  PRIMARY KEY,
+    revoked_at NVARCHAR(30)  DEFAULT CONVERT(NVARCHAR,GETDATE(),120),
+    reason     NVARCHAR(200)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='bmdc_sync_log' AND xtype='U')
+  CREATE TABLE bmdc_sync_log (
+    id              INT IDENTITY(1,1) PRIMARY KEY,
+    date            NVARCHAR(30),
+    revoked_checked INT DEFAULT 0,
+    suspended       INT DEFAULT 0
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='banned_phones' AND xtype='U')
+  CREATE TABLE banned_phones (
+    phone     NVARCHAR(MAX),
+    banned_at NVARCHAR(30) DEFAULT CONVERT(NVARCHAR,GETDATE(),120),
+    reason    NVARCHAR(200)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='banned_devices' AND xtype='U')
+  CREATE TABLE banned_devices (
+    device_fp NVARCHAR(500) PRIMARY KEY,
+    banned_at NVARCHAR(30)  DEFAULT CONVERT(NVARCHAR,GETDATE(),120),
+    reason    NVARCHAR(200)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='banned_networks' AND xtype='U')
+  CREATE TABLE banned_networks (
+    network_hint NVARCHAR(100) PRIMARY KEY,
+    banned_at    NVARCHAR(30)  DEFAULT CONVERT(NVARCHAR,GETDATE(),120),
+    reason       NVARCHAR(200)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='audit_log' AND xtype='U')
+  CREATE TABLE audit_log (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    ts          NVARCHAR(30)  NOT NULL DEFAULT CONVERT(NVARCHAR,GETDATE(),120),
+    actor_id    INT,
+    actor_role  NVARCHAR(20),
+    action      NVARCHAR(100) NOT NULL,
+    target_type NVARCHAR(50),
+    target_id   INT,
+    detail      NVARCHAR(MAX)
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='ix_audit_ts' AND object_id=OBJECT_ID('audit_log'))
+    CREATE INDEX ix_audit_ts ON audit_log(ts DESC)`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='otp_store' AND xtype='U')
+  CREATE TABLE otp_store (
+    email    NVARCHAR(MAX) NOT NULL,
+    code     NVARCHAR(20)  NOT NULL,
+    expires  BIGINT        NOT NULL,
+    attempts INT           DEFAULT 0
+  )`);
+
+  await _query(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='site_meta' AND xtype='U')
+  CREATE TABLE site_meta (
+    [key]  NVARCHAR(100) PRIMARY KEY,
+    value  NVARCHAR(MAX)
+  )`);
+}
+
+// ── Seed ──────────────────────────────────────────────────────
+async function _seed() {
+  const row = await _get(`SELECT COUNT(*) AS c FROM users WHERE deleted=0`);
+  if (row && row.c > 0) return;
+
+  const adminHash = bcrypt.hashSync('Adm!n@DocR3v!3w2025#BD', SALT);
+  const p123      = bcrypt.hashSync('pass123', SALT);
+
+  await _query(`INSERT INTO users(name,email,password,role,avatar,joined,banned,email_verified)
+    VALUES(@name,@email,@pw,'admin','AD','2024-01-01',0,1)`,
+    { name: E('Admin'), email: E('docreviewbd.admin@system.bd'), pw: adminHash });
+
+  const u1 = await _run(`INSERT INTO users(name,email,password,role,avatar,joined,phone,blood_group,age,gender,address,banned,email_verified)
+    OUTPUT INSERTED.id AS new_id
+    VALUES(@n,@e,@pw,'patient','RH','2024-02-10',@ph,@bl,@ag,@gn,@ad,0,1)`,
+    { n:E('Rahim Hossain'), e:E('rahim@gmail.com'), pw:p123, ph:E('01711234567'), bl:E('B+'), ag:E('35'), gn:E('Male'), ad:E('Mirpur, Dhaka') });
+
+  const u2 = await _run(`INSERT INTO users(name,email,password,role,avatar,joined,phone,blood_group,age,gender,address,banned,email_verified)
+    OUTPUT INSERTED.id AS new_id
+    VALUES(@n,@e,@pw,'patient','FB','2024-03-05',@ph,@bl,@ag,@gn,@ad,0,1)`,
+    { n:E('Fatema Begum'), e:E('fatema@gmail.com'), pw:p123, ph:E('01822345678'), bl:E('O+'), ag:E('28'), gn:E('Female'), ad:E('Dhanmondi, Dhaka') });
+
+  const docs = [
+    { n:'Dr. Arif Ahmed',    s:'Cardiologist (হৃদরোগ)',              b:'A-12345', h:'Square Hospital, Dhaka',            ch:'Square Hospital, 18/F West Panthapath', d:'Dhaka', ex:15, f:1500, r:4.8, rc:124, t:'Senior Consultant',   mc:'Dhaka Medical College',          g:'Male',   ph:'01912345678', em:'arif@sq.com',     ab:'Specialist in heart diseases with 15 years of experience.', dg:[{degree:'MBBS',institution:'Dhaka Medical College',year:'2002'},{degree:'MD (Cardiology)',institution:'BSMMU',year:'2007'},{degree:'FCPS',institution:'BCPS',year:'2009'}] },
+    { n:'Dr. Nasrin Islam',  s:'Dermatologist (চর্মরোগ)',             b:'A-23456', h:'United Hospital, Dhaka',             ch:'United Hospital, Plot 15, Road 71, Gulshan', d:'Dhaka', ex:10, f:1200, r:4.6, rc:89,  t:'Consultant',         mc:'Chittagong Medical College',     g:'Female', ph:'01812456789', em:'nasrin@uh.com',   ab:'Expert in skin diseases, laser treatment and cosmetic dermatology.', dg:[{degree:'MBBS',institution:'Chittagong Medical College',year:'2006'},{degree:'DDV',institution:'BSMMU',year:'2010'},{degree:'FCPS (Dermatology)',institution:'BCPS',year:'2013'}] },
+    { n:'Dr. Karim Uddin',   s:'Orthopedic Surgeon (অস্থি ও জোড়া)', b:'A-34567', h:'Labaid Hospital, Dhaka',              ch:'Labaid Specialized Hospital, Dhanmondi',    d:'Dhaka', ex:20, f:2000, r:4.9, rc:203, t:'Professor',          mc:'Rajshahi Medical College',       g:'Male',   ph:'01712567890', em:'karim@lb.com',    ab:'Senior orthopedic surgeon. 3000+ successful surgeries.', dg:[{degree:'MBBS',institution:'Rajshahi Medical College',year:'2000'},{degree:'MS (Orthopedics)',institution:'BSMMU',year:'2006'},{degree:'FCPS (Surgery)',institution:'BCPS',year:'2008'}] },
+    { n:'Dr. Shamima Akter', s:'Gynecologist (স্ত্রীরোগ)',             b:'A-45678', h:"Anwer Khan Modern Hospital, Dhaka",   ch:"Anwer Khan Modern Hospital, Dhanmondi",     d:'Dhaka', ex:12, f:1300, r:4.7, rc:156, t:'Associate Professor', mc:'Mymensingh Medical College',     g:'Female', ph:'01612678901', em:'shamima@ak.com', ab:"Women's health specialist. Expert in high-risk pregnancy.", dg:[{degree:'MBBS',institution:'Mymensingh Medical College',year:'2004'},{degree:'FCPS (Gynecology)',institution:'BCPS',year:'2010'}] },
+    { n:'Dr. Rafiqul Islam', s:'Neurologist (স্নায়বিক)',              b:'A-56789', h:'BIRDEM General Hospital, Dhaka',      ch:'BIRDEM General Hospital, Shahbag',          d:'Dhaka', ex:18, f:1800, r:4.5, rc:97,  t:'Senior Consultant',  mc:'Sir Salimullah Medical College', g:'Male',   ph:'01512789012', em:'rafiq@bd.com',    ab:'Expert in brain and nervous system disorders, stroke management.', dg:[{degree:'MBBS',institution:'Sir Salimullah Medical College',year:'2001'},{degree:'MD (Neurology)',institution:'BSMMU',year:'2007'}] },
+    { n:'Dr. Sumaiya Khan',  s:'Pediatrician (শিশুরোগ)',              b:'A-67890', h:'Dhaka Shishu Hospital',               ch:'Dhaka Shishu Hospital, Sher-e-Bangla Nagar',d:'Dhaka', ex:8,  f:1000, r:4.8, rc:178, t:'Consultant',         mc:'Dhaka Medical College',          g:'Female', ph:'01412890123', em:'sumaiya@dsh.com', ab:'Child health specialist. Expert in newborn care and childhood diseases.', dg:[{degree:'MBBS',institution:'Dhaka Medical College',year:'2008'},{degree:'DCH',institution:'BCPS',year:'2011'},{degree:'FCPS (Pediatrics)',institution:'BCPS',year:'2014'}] },
+  ];
+
+  const docIds = [];
+  for (const dc of docs) {
+    const dr = await _run(`INSERT INTO doctors(name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,
+      chamber_time,visit_location,visit_days,visit_hours,district,experience,fee,rating,reviews_count,
+      phone,email,about,dr_type,medical_college,gender,languages,available,deleted)
+      OUTPUT INSERTED.id AS new_id
+      VALUES(@n,@s,@dg,@b,1,@h,@ch,'',@vl,'','[]',@d,@ex,@f,@r,@rc,@ph,@em,@ab,@t,@mc,@g,'Bangla, English',1,0)`,
+      { n:dc.n, s:dc.s, dg:JSON.stringify(dc.dg), b:dc.b, h:dc.h, ch:dc.ch, vl:'', d:dc.d,
+        ex:dc.ex, f:dc.f, r:dc.r, rc:dc.rc, ph:E(dc.ph), em:E(dc.em), ab:dc.ab, t:dc.t, mc:dc.mc, g:dc.g });
+    docIds.push(dr.lastId);
+  }
+
+  const pid1 = u1.lastId, pid2 = u2.lastId;
+  const reviews = [
+    { did:docIds[0], pid:pid1, pn:'Rahim Hossain',  rt:5, cm:'Excellent doctor! Very attentive.',           dt:'2024-11-15', hp:12 },
+    { did:docIds[0], pid:pid2, pn:'Fatema Begum',    rt:4, cm:'Good experience. Very knowledgeable.',         dt:'2024-12-01', hp:7  },
+    { did:docIds[1], pid:pid1, pn:'Rahim Hossain',  rt:5, cm:'Dr. Nasrin is amazing! Skin improved.',        dt:'2024-10-20', hp:20 },
+    { did:docIds[2], pid:pid2, pn:'Fatema Begum',    rt:5, cm:'Best orthopedic surgeon in Bangladesh.',      dt:'2024-09-12', hp:15 },
+    { did:docIds[4], pid:pid1, pn:'Rahim Hossain',  rt:4, cm:'Very thorough in diagnosis.',                  dt:'2025-01-05', hp:8  },
+  ];
+  for (const rv of reviews) {
+    if (!rv.pid) continue;
+    await _query(`INSERT INTO reviews(doctor_id,patient_id,patient_name,rating,comment,date,helpful,replies,verification_status)
+      VALUES(@did,@pid,@pn,@rt,@cm,@dt,@hp,'[]','verified')`,
+      { did:rv.did, pid:rv.pid, pn:E(rv.pn), rt:rv.rt, cm:E(rv.cm), dt:rv.dt, hp:rv.hp });
+  }
+
+  await _query(`IF NOT EXISTS (SELECT 1 FROM site_meta WHERE [key]='site_visits') INSERT INTO site_meta([key],value) VALUES('site_visits','0')`);
+  await _query(`IF NOT EXISTS (SELECT 1 FROM site_meta WHERE [key]='version') INSERT INTO site_meta([key],value) VALUES('version','3.0.0-mssql')`);
+  console.log('[DB] Seed complete — all sensitive fields AES-256-GCM encrypted');
+}
+
+// ── Mappers ───────────────────────────────────────────────────
 function _mapUser(u) {
   if (!u) return null;
-  return { id:u.id, name:u.name, email:u.email, role:u.role, avatar:u.avatar, joined:u.joined,
-    phone:u.phone, gender:u.gender, age:u.age, bloodGroup:u.blood_group, address:u.address,
-    profilePic:u.profile_pic, banned:!!u.banned, banReason:u.ban_reason, emailVerified:!!u.email_verified };
+  return { id:u.id, role:u.role, avatar:u.avatar, joined:u.joined,
+    banned:!!u.banned, banReason:u.ban_reason, emailVerified:!!u.email_verified,
+    name:D(u.name), email:D(u.email), phone:D(u.phone), gender:D(u.gender),
+    age:D(u.age), bloodGroup:D(u.blood_group), address:D(u.address), profilePic:D(u.profile_pic) };
 }
-
 function _mapDoctor(d) {
   if (!d) return null;
   return { id:d.id, userId:d.user_id, name:d.name, specialty:d.specialty,
@@ -275,420 +361,457 @@ function _mapDoctor(d) {
     hospital:d.hospital, chamber:d.chamber, chamberTime:d.chamber_time,
     visitLocation:d.visit_location, visitDays:d.visit_days, visitHours:_jp(d.visit_hours,[]),
     district:d.district, experience:d.experience, fee:d.fee, rating:d.rating, reviews:d.reviews_count,
-    available:!!d.available, phone:d.phone, email:d.email, about:d.about, drType:d.dr_type,
-    medicalCollege:d.medical_college, languages:d.languages, gender:d.gender, profilePic:d.profile_pic };
+    available:!!d.available, about:d.about, drType:d.dr_type, medicalCollege:d.medical_college,
+    languages:d.languages, gender:d.gender,
+    phone:D(d.phone), email:D(d.email), profilePic:D(d.profile_pic) };
 }
-
 function _mapReview(r) {
   if (!r) return null;
-  // normalize: backend stores 'flagged', frontend expects 'fake'
   const vs = r.verification_status === 'flagged' ? 'fake' : r.verification_status;
-  return { id:r.id, doctorId:r.doctor_id, patientId:r.patient_id, patientName:r.patient_name,
-    rating:r.rating, comment:r.comment, date:r.date, helpful:r.helpful, replies:_jp(r.replies,[]),
-    verificationStatus:vs, fileRef:r.file_ref };
+  return { id:r.id, doctorId:r.doctor_id, patientId:r.patient_id, rating:r.rating, date:r.date,
+    helpful:r.helpful, replies:_jp(r.replies,[]), verificationStatus:vs, fileRef:r.file_ref,
+    patientName:D(r.patient_name), comment:D(r.comment) };
+}
+function _jp(s,fb) { try { return JSON.parse(s); } catch { return fb; } }
+
+// ── Internal helpers ──────────────────────────────────────────
+async function _audit(actorId, role, action, type, targetId, detail) {
+  try { await _query(`INSERT INTO audit_log(actor_id,actor_role,action,target_type,target_id,detail)
+    VALUES(@a,@r,@ac,@t,@ti,@d)`,
+    { a:actorId||null, r:role||null, ac:action, t:type||null, ti:targetId||null, d:detail?JSON.stringify(detail):null }); } catch {}
+}
+async function _banPhone(phone, reason) {
+  const ep = E(phone.replace(/\D/g,''));
+  await _query(`IF NOT EXISTS (SELECT 1 FROM banned_phones WHERE phone=@p) INSERT INTO banned_phones(phone,reason) VALUES(@p,@r)`,{ p:ep, r:reason||null });
+}
+async function _banDevice(fp, reason) {
+  if (!fp) return;
+  await _query(`IF NOT EXISTS (SELECT 1 FROM banned_devices WHERE device_fp=@f) INSERT INTO banned_devices(device_fp,reason) VALUES(@f,@r)`,{ f:fp, r:reason||null });
+}
+async function _banNetwork(hint, reason) {
+  if (!hint) return;
+  await _query(`IF NOT EXISTS (SELECT 1 FROM banned_networks WHERE network_hint=@h) INSERT INTO banned_networks(network_hint,reason) VALUES(@h,@r)`,{ h:hint, r:reason||null });
+}
+async function _recalcRating(doctorId) {
+  const a = await _get(`SELECT AVG(CAST(rating AS FLOAT)) AS avg_r, COUNT(*) AS cnt FROM reviews WHERE doctor_id=@id`,{ id:doctorId });
+  await _query(`UPDATE doctors SET rating=@r,reviews_count=@c WHERE id=@id`,
+    { r:Math.round((a?.avg_r||0)*10)/10, c:a?.cnt||0, id:doctorId });
 }
 
-function _jp(s, fb) { try { return JSON.parse(s); } catch { return fb; } }
-
-function _audit(actorId, role, action, type, targetId, detail) {
-  try { _run("INSERT INTO audit_log(actor_id,actor_role,action,target_type,target_id,detail) VALUES(?,?,?,?,?,?)",
-    [actorId||null, role||null, action, type||null, targetId||null, detail?JSON.stringify(detail):null]); } catch {}
-}
-
-function _banPhone(phone, reason)   { _run("INSERT OR IGNORE INTO banned_phones(phone,reason)   VALUES(?,?)", [phone.replace(/\D/g,''), reason]); }
-function _banDevice(fp, reason)     { if (fp) _run("INSERT OR IGNORE INTO banned_devices(device_fp,reason) VALUES(?,?)", [fp, reason]); }
-function _banNetwork(hint, reason)  { if (hint) _run("INSERT OR IGNORE INTO banned_networks(network_hint,reason) VALUES(?,?)", [hint, reason]); }
-
-module.exports = {
-  initDB,
+// ── Async implementation ──────────────────────────────────────
+const _async = {
+  // Init
+  async initDB() {
+    pool = await sql.connect(SQL_CONFIG);
+    pool.on('error', err => console.error('[DB Pool error]', err));
+    await _schema();
+    await _seed();
+    console.log('[DB] MS SQL Server ready —', SQL_CONFIG.database, '@ AES-256-GCM encrypted');
+  },
 
   // Site
-  getVisitCount() { return parseInt(_get("SELECT value FROM site_meta WHERE key='site_visits'")?.value||'0'); },
-  recordVisit()   { _run("UPDATE site_meta SET value=CAST(CAST(value AS INTEGER)+1 AS TEXT) WHERE key='site_visits'"); },
+  async getVisitCount() {
+    const r = await _get(`SELECT value FROM site_meta WHERE [key]='site_visits'`);
+    return parseInt(r?.value||'0');
+  },
+  async recordVisit() {
+    await _query(`UPDATE site_meta SET value=CAST(CAST(value AS INT)+1 AS NVARCHAR) WHERE [key]='site_visits'`);
+  },
 
   // OTP
-  saveOtp(email, code, ttl=600_000) {
-    _run("INSERT OR REPLACE INTO otp_store(email,code,expires,attempts) VALUES(?,?,?,0)",
-      [email.toLowerCase().trim(), code, Date.now()+ttl]);
+  async saveOtp(email, code, ttl=600000) {
+    const ee = E(email.toLowerCase().trim());
+    await _query(`DELETE FROM otp_store WHERE email=@e`,{ e:ee });
+    await _query(`INSERT INTO otp_store(email,code,expires,attempts) VALUES(@e,@c,@ex,0)`,
+      { e:ee, c:String(code), ex:Date.now()+ttl });
   },
-  verifyOtp(email, input) {
-    const r = _get("SELECT * FROM otp_store WHERE email=?", email.toLowerCase().trim());
-    if (!r)                  return { error: 'OTP pending নেই। আবার চেষ্টা করুন।' };
-    if (Date.now()>r.expires){ _run("DELETE FROM otp_store WHERE email=?", [r.email]); return { error: 'OTP মেয়াদ শেষ।' }; }
-    if (r.attempts>=5)       { _run("DELETE FROM otp_store WHERE email=?", [r.email]); return { error: 'অনেকবার ভুল। নতুন OTP নিন।' }; }
-    if (r.code!==String(input).trim()) {
-      _run("UPDATE otp_store SET attempts=attempts+1 WHERE email=?", [r.email]);
-      return { error: `ভুল OTP। আরো ${4-r.attempts} বার সুযোগ।` };
+  async verifyOtp(email, input) {
+    const rows = await _all(`SELECT * FROM otp_store`);
+    const row  = rows.find(r => D(r.email) === email.toLowerCase().trim());
+    if (!row) return { error:'OTP pending নেই।' };
+    if (Date.now() > row.expires) { await _query(`DELETE FROM otp_store WHERE email=@e`,{e:row.email}); return { error:'OTP মেয়াদ শেষ।' }; }
+    if (row.attempts >= 5)        { await _query(`DELETE FROM otp_store WHERE email=@e`,{e:row.email}); return { error:'অনেকবার ভুল। নতুন OTP নিন।' }; }
+    if (row.code !== String(input).trim()) {
+      await _query(`UPDATE otp_store SET attempts=attempts+1 WHERE email=@e`,{e:row.email});
+      return { error:`ভুল OTP। আরো ${4-row.attempts} বার সুযোগ।` };
     }
-    _run("DELETE FROM otp_store WHERE email=?", [r.email]);
-    return { success: true };
+    await _query(`DELETE FROM otp_store WHERE email=@e`,{e:row.email});
+    return { success:true };
+  },
+  async cleanExpiredOtps() {
+    const rows = await _all(`SELECT email,expires FROM otp_store`);
+    for (const r of rows) if (Date.now()>r.expires) await _query(`DELETE FROM otp_store WHERE email=@e`,{e:r.email});
   },
 
   // Users
-  findUser(email, password) {
-    const u = _get("SELECT * FROM users WHERE email=? AND deleted=0", email.trim());
+  async findUser(email, password) {
+    const rows = await _all(`SELECT * FROM users WHERE deleted=0`);
+    const u = rows.find(r => !r.banned && D(r.email)===email.trim());
     if (!u) return null;
     if (!bcrypt.compareSync(password, u.password)) return null;
-    if (u.banned) return { banned:true, banReason:u.ban_reason };
     return _mapUser(u);
   },
-  getUserById(id)         { return _mapUser(_get("SELECT * FROM users WHERE id=? AND deleted=0", id)); },
-  emailExists(email)      { return !!_get("SELECT id FROM users WHERE email=? AND deleted=0", email.trim()); },
-  phoneExistsForPatient(phone) {
-    const c = phone.replace(/\D/g,'');
-    return !!_get("SELECT id FROM users WHERE role='patient' AND REPLACE(REPLACE(phone,'-',''),' ','')=? AND deleted=0", c);
+  async getUserById(id) {
+    return _mapUser(await _get(`SELECT * FROM users WHERE id=@id AND deleted=0`,{id}));
   },
-  isPhoneBanned(phone)    { return !!_get("SELECT phone FROM banned_phones WHERE phone=?", phone.replace(/\D/g,'')); },
-  isDeviceBanned(fp)      { return fp ? !!_get("SELECT device_fp FROM banned_devices WHERE device_fp=?", fp) : false; },
-  isNetworkBanned(hint)   { return hint ? !!_get("SELECT network_hint FROM banned_networks WHERE network_hint=?", hint) : false; },
-  bmdcExists(bmdc)        { return !!_get("SELECT id FROM doctors WHERE bmdc=? AND deleted=0", bmdc.trim()); },
-
-  registerPatient(data, deviceFp, networkHint) {
-    if (this.emailExists(data.email))           return { error: 'এই email দিয়ে আগেই account আছে' };
-    if (this.phoneExistsForPatient(data.phone)) return { error: 'এই phone number দিয়ে আগেই account আছে' };
-    if (this.isPhoneBanned(data.phone))         return { error: 'এই phone number দিয়ে account খোলা সম্ভব নয়' };
-    if (deviceFp  && this.isDeviceBanned(deviceFp))    return { error: 'এই device থেকে account খোলা সম্ভব নয়' };
-    if (networkHint && this.isNetworkBanned(networkHint)) return { error: 'এই network থেকে account খোলা সম্ভব নয়' };
-
+  async getAllUsers() {
+    return (await _all(`SELECT * FROM users WHERE deleted=0 ORDER BY id DESC`)).map(_mapUser);
+  },
+  async emailExists(email) {
+    const rows = await _all(`SELECT email FROM users WHERE deleted=0`);
+    return rows.some(r => D(r.email)===email.trim());
+  },
+  async phoneExistsForPatient(phone) {
+    const clean = phone.replace(/\D/g,'');
+    const rows  = await _all(`SELECT phone FROM users WHERE role='patient' AND deleted=0`);
+    return rows.some(r => D(r.phone)===clean);
+  },
+  async isPhoneBanned(phone) {
+    const clean = phone.replace(/\D/g,'');
+    const rows  = await _all(`SELECT phone FROM banned_phones`);
+    return rows.some(r => D(r.phone)===clean);
+  },
+  async isDeviceBanned(fp) {
+    if (!fp) return false;
+    return !!(await _get(`SELECT device_fp FROM banned_devices WHERE device_fp=@f`,{f:fp}));
+  },
+  async isNetworkBanned(hint) {
+    if (!hint) return false;
+    return !!(await _get(`SELECT network_hint FROM banned_networks WHERE network_hint=@h`,{h:hint}));
+  },
+  async bmdcExists(bmdc) {
+    return !!(await _get(`SELECT id FROM doctors WHERE bmdc=@b AND deleted=0`,{b:bmdc.trim()}));
+  },
+  async registerPatient(data, deviceFp, networkHint) {
+    if (await _async.emailExists(data.email))            return { error:'এই email দিয়ে আগেই account আছে' };
+    if (await _async.phoneExistsForPatient(data.phone))  return { error:'এই phone number দিয়ে আগেই account আছে' };
+    if (await _async.isPhoneBanned(data.phone))          return { error:'এই phone number দিয়ে account খোলা সম্ভব নয়' };
+    if (deviceFp && await _async.isDeviceBanned(deviceFp)) return { error:'এই device থেকে account খোলা সম্ভব নয়' };
     const hash   = bcrypt.hashSync(data.password, SALT);
     const avatar = data.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-    const info = _run(`INSERT INTO users(name,email,password,role,avatar,phone,gender,age,blood_group,address,email_verified,device_fp,network_hint,banned)
-      VALUES(?,?,?,'patient',?,?,?,?,?,?,1,?,?,0)`,
-      [data.name.trim(),data.email.trim(),hash,avatar,
-       data.phone.replace(/\D/g,''),data.gender||null,data.age||null,
-       data.bloodGroup||null,data.address||null,deviceFp||null,networkHint||null]);
-    const user = this.getUserById(info.lastInsertRowid);
-    _audit(null,null,'register_patient','user',user.id,{email:user.email});
+    const res = await _run(`INSERT INTO users(name,email,password,role,avatar,phone,gender,age,blood_group,address,email_verified,device_fp,network_hint,banned)
+      OUTPUT INSERTED.id AS new_id
+      VALUES(@n,@e,@pw,'patient',@av,@ph,@gn,@ag,@bl,@ad,1,@df,@nh,0)`,
+      { n:E(data.name.trim()), e:E(data.email.trim()), pw:hash, av:avatar,
+        ph:E(data.phone?.replace(/\D/g,'')), gn:E(data.gender||null), ag:E(data.age?.toString()||null),
+        bl:E(data.bloodGroup||null), ad:E(data.address||null), df:deviceFp||null, nh:networkHint||null });
+    const user = await _async.getUserById(res.lastId);
+    await _audit(null,null,'register_patient','user',user.id,{role:'patient'});
     return { user };
   },
-
-  registerDoctor(data, deviceFp, networkHint) {
-    if (this.emailExists(data.email)) return { error: 'এই email দিয়ে আগেই account আছে' };
-    if (this.bmdcExists(data.bmdc))   return { error: 'এই BMDC নম্বর দিয়ে আগেই registered আছেন' };
-    if (deviceFp && this.isDeviceBanned(deviceFp)) return { error: 'এই device থেকে account খোলা সম্ভব নয়' };
-    if (_get("SELECT bmdc FROM bmdc_revoked WHERE bmdc=?", data.bmdc.trim()))
-      return { error: 'এই BMDC নম্বরটি বর্তমানে active নেই।' };
-
+  async registerDoctor(data, deviceFp, networkHint) {
+    if (await _async.emailExists(data.email))      return { error:'এই email দিয়ে আগেই account আছে' };
+    if (await _async.bmdcExists(data.bmdc))        return { error:'এই BMDC নম্বর দিয়ে আগেই registered আছেন' };
+    if (deviceFp && await _async.isDeviceBanned(deviceFp)) return { error:'এই device থেকে account খোলা সম্ভব নয়' };
+    if (await _get(`SELECT bmdc FROM bmdc_revoked WHERE bmdc=@b`,{b:data.bmdc.trim()})) return { error:'এই BMDC নম্বরটি বর্তমানে active নেই।' };
     const hash   = bcrypt.hashSync(data.password, SALT);
     const avatar = data.name.replace(/^Dr\.?\s*/i,'').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-
-    const { userId, docId } = db.transaction(() => {
-      const ui = _run("INSERT INTO users(name,email,password,role,avatar,email_verified,device_fp,network_hint,banned) VALUES(?,?,?,'doctor',?,1,?,?,0)",
-        [data.name.trim(),data.email.trim(),hash,avatar,deviceFp||null,networkHint||null]);
-      const uid = ui.lastInsertRowid;
-      const di = _run(`INSERT INTO doctors(user_id,name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,chamber_time,
-        visit_location,visit_days,visit_hours,district,experience,fee,phone,email,about,
-        dr_type,medical_college,gender,languages,available,rating,reviews_count)
-        VALUES(?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,0)`,
-        [uid,data.name.trim(),data.specialty,JSON.stringify(data.degrees||[]),data.bmdc.trim(),
-         data.hospital||'',data.chamber||'',data.chamberTime||'',data.visitLocation||'',
-         data.visitDays||'',JSON.stringify(data.visitHours||[]),data.district||'',
-         parseInt(data.experience)||0,parseInt(data.fee)||0,
-         data.phone||'',data.email.trim(),data.about||'',data.drType||'',
-         data.medicalCollege||'',data.gender||'',data.languages||'']);
-      _run("INSERT INTO doctors_fts(doctor_id,name,specialty,about) VALUES(?,?,?,?)",
-        [di.lastInsertRowid,data.name,data.specialty||'',data.about||'']);
-      return { userId:uid, docId:di.lastInsertRowid };
-    })();
-
-    const user   = this.getUserById(userId);
-    const doctor = _mapDoctor(_get("SELECT * FROM doctors WHERE id=?", docId));
-    _audit(null,null,'register_doctor','doctor',docId,{email:data.email,bmdc:data.bmdc});
+    const uRes = await _run(`INSERT INTO users(name,email,password,role,avatar,email_verified,device_fp,network_hint,banned)
+      OUTPUT INSERTED.id AS new_id VALUES(@n,@e,@pw,'doctor',@av,1,@df,@nh,0)`,
+      { n:E(data.name.trim()), e:E(data.email.trim()), pw:hash, av:avatar, df:deviceFp||null, nh:networkHint||null });
+    const dRes = await _run(`INSERT INTO doctors(user_id,name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,
+      chamber_time,visit_location,visit_days,visit_hours,district,experience,fee,phone,email,about,dr_type,medical_college,gender,languages,available,rating,reviews_count)
+      OUTPUT INSERTED.id AS new_id
+      VALUES(@uid,@n,@s,@dg,@b,1,@h,@ch,@ct,@vl,@vd,@vh,@d,@ex,@f,@ph,@em,@ab,@t,@mc,@g,@la,1,0,0)`,
+      { uid:uRes.lastId, n:data.name.trim(), s:data.specialty, dg:JSON.stringify(data.degrees||[]),
+        b:data.bmdc.trim(), h:data.hospital||'', ch:data.chamber||'', ct:data.chamberTime||'',
+        vl:data.visitLocation||'', vd:data.visitDays||'', vh:JSON.stringify(data.visitHours||[]),
+        d:data.district||'', ex:parseInt(data.experience)||0, f:parseInt(data.fee)||0,
+        ph:E(data.phone||''), em:E(data.email.trim()), ab:data.about||'',
+        t:data.drType||'', mc:data.medicalCollege||'', g:data.gender||'', la:data.languages||'' });
+    const user   = await _async.getUserById(uRes.lastId);
+    const doctor = _mapDoctor(await _get(`SELECT * FROM doctors WHERE id=@id`,{id:dRes.lastId}));
+    await _audit(null,null,'register_doctor','doctor',dRes.lastId,{bmdc:data.bmdc});
     return { user, doctor };
   },
-
-  updateUser(id, data) {
-    const u = _get("SELECT * FROM users WHERE id=? AND deleted=0", id);
-    if (!u) return { error: 'User পাওয়া যায়নি' };
-    if (data.email && data.email!==u.email && this.emailExists(data.email)) return { error: 'এই email আগেই ব্যবহার হচ্ছে' };
-    const fields=[], vals=[], map={name:'name',email:'email',phone:'phone',gender:'gender',age:'age',bloodGroup:'blood_group',address:'address'};
-    for (const [k,col] of Object.entries(map)) if (data[k]!==undefined) { fields.push(`${col}=?`); vals.push(data[k]); }
-    if (!fields.length) return { user:_mapUser(u) };
-    vals.push(id);
-    _run(`UPDATE users SET ${fields.join(',')} WHERE id=?`, vals);
-    if (data.name)  _run("UPDATE doctors SET name=?  WHERE user_id=? AND deleted=0", [data.name,id]);
-    if (data.email) _run("UPDATE doctors SET email=? WHERE user_id=? AND deleted=0", [data.email,id]);
-    _audit(id,u.role,'update_profile','user',id,{fields:Object.keys(data)});
-    return { user:this.getUserById(id) };
+  async updateUser(id, data) {
+    const u = await _get(`SELECT * FROM users WHERE id=@id AND deleted=0`,{id});
+    if (!u) return { error:'User পাওয়া যায়নি' };
+    if (data.email && data.email!==D(u.email) && await _async.emailExists(data.email)) return { error:'এই email আগেই ব্যবহার হচ্ছে' };
+    const map = { name:'name', email:'email', phone:'phone', gender:'gender', age:'age', bloodGroup:'blood_group', address:'address' };
+    const sets=[], params={id};
+    for (const [k,col] of Object.entries(map)) if (data[k]!==undefined) { sets.push(`${col}=@${k}`); params[k]=E(data[k]); }
+    if (!sets.length) return { user:_mapUser(u) };
+    await _query(`UPDATE users SET ${sets.join(',')} WHERE id=@id`,params);
+    if (data.name)  await _query(`UPDATE doctors SET name=@n WHERE user_id=@id AND deleted=0`,{n:data.name,id});
+    if (data.email) await _query(`UPDATE doctors SET email=@e WHERE user_id=@id AND deleted=0`,{e:E(data.email),id});
+    await _audit(id,u.role,'update_profile','user',id,{fields:Object.keys(data)});
+    return { user:await _async.getUserById(id) };
   },
-
-  changePassword(userId, newPassword) {
-    _run("UPDATE users SET password=? WHERE id=?", [bcrypt.hashSync(newPassword, SALT), userId]);
-    _audit(userId,null,'change_password','user',userId);
+  async changePassword(userId, newPassword) {
+    await _query(`UPDATE users SET password=@h WHERE id=@id`,{h:bcrypt.hashSync(newPassword,SALT),id:userId});
+    await _audit(userId,null,'change_password','user',userId);
     return { success:true };
   },
-
-  updateDoctorProfile(userId, data) {
-    const doc = _get("SELECT * FROM doctors WHERE user_id=? AND deleted=0", userId);
-    if (!doc) return { error: 'Doctor profile পাওয়া যায়নি' };
-    const fields=[], vals=[];
-    const map={specialty:'specialty',hospital:'hospital',chamber:'chamber',chamberTime:'chamber_time',
-      visitLocation:'visit_location',visitDays:'visit_days',district:'district',experience:'experience',
-      fee:'fee',phone:'phone',about:'about',drType:'dr_type',medicalCollege:'medical_college',
-      languages:'languages',gender:'gender',available:'available'};
-    for (const [k,col] of Object.entries(map)) if (data[k]!==undefined) { fields.push(`${col}=?`); vals.push(data[k]); }
-    if (data.degrees!==undefined)    { fields.push('degrees=?');     vals.push(JSON.stringify(data.degrees)); }
-    if (data.visitHours!==undefined) { fields.push('visit_hours=?'); vals.push(JSON.stringify(data.visitHours)); }
-    if (!fields.length) return { doctor:_mapDoctor(doc) };
-    vals.push(doc.id);
-    _run(`UPDATE doctors SET ${fields.join(',')} WHERE id=?`, vals);
-    const updated = _get("SELECT * FROM doctors WHERE id=?", doc.id);
-    _run("INSERT OR REPLACE INTO doctors_fts(doctor_id,name,specialty,about) VALUES(?,?,?,?)",
-      [doc.id,updated.name,updated.specialty||'',updated.about||'']);
-    _audit(userId,'doctor','update_doctor_profile','doctor',doc.id);
-    return { doctor:_mapDoctor(updated) };
+  async updateDoctorProfile(userId, data) {
+    const doc = await _get(`SELECT * FROM doctors WHERE user_id=@uid AND deleted=0`,{uid:userId});
+    if (!doc) return { error:'Doctor profile পাওয়া যায়নি' };
+    const plainMap={ specialty:'specialty', hospital:'hospital', chamber:'chamber', chamberTime:'chamber_time',
+      visitLocation:'visit_location', visitDays:'visit_days', district:'district', experience:'experience',
+      fee:'fee', about:'about', drType:'dr_type', medicalCollege:'medical_college', languages:'languages', gender:'gender', available:'available' };
+    const sets=[], params={docId:doc.id};
+    for (const [k,col] of Object.entries(plainMap)) if (data[k]!==undefined) { sets.push(`${col}=@${k}`); params[k]=data[k]; }
+    if (data.phone!==undefined)      { sets.push('phone=@phone');            params.phone=E(data.phone); }
+    if (data.degrees!==undefined)    { sets.push('degrees=@degrees');        params.degrees=JSON.stringify(data.degrees); }
+    if (data.visitHours!==undefined) { sets.push('visit_hours=@visitHours'); params.visitHours=JSON.stringify(data.visitHours); }
+    if (!sets.length) return { doctor:_mapDoctor(doc) };
+    await _query(`UPDATE doctors SET ${sets.join(',')} WHERE id=@docId`,params);
+    await _audit(userId,'doctor','update_doctor_profile','doctor',doc.id);
+    return { doctor:_mapDoctor(await _get(`SELECT * FROM doctors WHERE id=@id`,{id:doc.id})) };
   },
-
-  setProfilePic(userId, base64) {
-    _run("UPDATE users   SET profile_pic=? WHERE id=?",            [base64, userId]);
-    _run("UPDATE doctors SET profile_pic=? WHERE user_id=? AND deleted=0", [base64, userId]);
-    _audit(userId,null,'update_pic','user',userId);
+  async setProfilePic(userId, base64) {
+    await _query(`UPDATE users   SET profile_pic=@p WHERE id=@id`,{p:E(base64),id:userId});
+    await _query(`UPDATE doctors SET profile_pic=@p WHERE user_id=@id AND deleted=0`,{p:E(base64),id:userId});
+    await _audit(userId,null,'update_pic','user',userId);
   },
-
-  deleteAccount(userId) {
-    const u = _get("SELECT * FROM users WHERE id=?", userId);
-    if (!u) return { error: 'User পাওয়া যায়নি' };
-    _run("UPDATE users    SET deleted=1,deleted_at=datetime('now'),email=email||'__del'||id WHERE id=?", [userId]);
-    _run("UPDATE doctors  SET deleted=1,deleted_at=datetime('now') WHERE user_id=?", [userId]);
-    _audit(userId,u.role,'delete_account','user',userId);
+  async deleteAccount(userId) {
+    const u = await _get(`SELECT role FROM users WHERE id=@id`,{id:userId});
+    await _query(`UPDATE users SET deleted=1,deleted_at=CONVERT(NVARCHAR,GETDATE(),120),email=email+'__del'+CAST(id AS NVARCHAR) WHERE id=@id`,{id:userId});
+    await _query(`UPDATE doctors SET deleted=1,deleted_at=CONVERT(NVARCHAR,GETDATE(),120) WHERE user_id=@id`,{id:userId});
+    await _audit(userId,u?.role,'delete_account','user',userId);
     return { success:true };
   },
-
-  banUser(userId, reason) {
-    const u = _get("SELECT phone,device_fp,network_hint FROM users WHERE id=?", userId);
-    _run("UPDATE users SET banned=1,ban_reason=?,banned_at=datetime('now') WHERE id=?", [reason||'admin_ban',userId]);
-    if (u?.phone)        _banPhone(u.phone, reason);
-    if (u?.device_fp)    _banDevice(u.device_fp, reason);
-    if (u?.network_hint) _banNetwork(u.network_hint, reason);
-    _audit(null,'system','ban_user','user',userId,{reason});
+  async banUser(userId, reason) {
+    const u = await _get(`SELECT phone,device_fp,network_hint FROM users WHERE id=@id`,{id:userId});
+    await _query(`UPDATE users SET banned=1,ban_reason=@r,banned_at=CONVERT(NVARCHAR,GETDATE(),120) WHERE id=@id`,{r:reason||'admin_ban',id:userId});
+    if (u?.phone)        await _banPhone(D(u.phone), reason);
+    if (u?.device_fp)    await _banDevice(u.device_fp, reason);
+    if (u?.network_hint) await _banNetwork(u.network_hint, reason);
+    await _audit(null,'system','ban_user','user',userId,{reason});
   },
-
-  unbanUser(userId) {
-    _run("UPDATE users SET banned=0,ban_reason=NULL WHERE id=?", [userId]);
-    _audit(null,'system','unban_user','user',userId);
+  async unbanUser(userId) {
+    await _query(`UPDATE users SET banned=0,ban_reason=NULL WHERE id=@id`,{id:userId});
+    await _audit(null,'system','unban_user','user',userId);
   },
 
   // Doctors
-  getAllDoctors()   { return _all("SELECT * FROM doctors WHERE deleted=0 ORDER BY rating DESC").map(_mapDoctor); },
-  getDoctorById(id){ return _mapDoctor(_get("SELECT * FROM doctors WHERE id=? AND deleted=0", id)); },
-  getDoctorByUserId(uid){ return _mapDoctor(_get("SELECT * FROM doctors WHERE user_id=? AND deleted=0", uid)); },
-
-  getDoctorPic(id) {
-    const d = _get("SELECT profile_pic,user_id FROM doctors WHERE id=?", id);
+  async getAllDoctors() {
+    return (await _all(`SELECT * FROM doctors WHERE deleted=0 ORDER BY rating DESC`)).map(_mapDoctor);
+  },
+  async getDoctorById(id) {
+    return _mapDoctor(await _get(`SELECT * FROM doctors WHERE id=@id AND deleted=0`,{id}));
+  },
+  async getDoctorByUserId(uid) {
+    return _mapDoctor(await _get(`SELECT * FROM doctors WHERE user_id=@uid AND deleted=0`,{uid}));
+  },
+  async getDoctorPic(id) {
+    const d = await _get(`SELECT profile_pic,user_id FROM doctors WHERE id=@id`,{id});
     if (!d) return null;
-    if (d.profile_pic) return d.profile_pic;
-    return _get("SELECT profile_pic FROM users WHERE id=?", d.user_id)?.profile_pic || null;
+    if (d.profile_pic) return D(d.profile_pic);
+    const u = await _get(`SELECT profile_pic FROM users WHERE id=@uid`,{uid:d.user_id});
+    return D(u?.profile_pic)||null;
   },
-
-  searchDoctors(q, specialty, district, sortBy, page=1) {
-    const off = (parseInt(page)||1) - 1;
-    let sql='', params=[];
-
+  async searchDoctors(q, specialty, district, sortBy, page=1) {
+    const offset = ((parseInt(page)||1)-1)*PAGE_SIZE;
+    const order  = ({fee_low:'fee ASC',fee_high:'fee DESC',experience:'experience DESC'})[sortBy]||'rating DESC';
+    const params = { offset, limit:PAGE_SIZE };
+    let where = 'WHERE deleted=0';
+    if (specialty) { where += ' AND specialty=@spec'; params.spec=specialty; }
+    if (district)  { where += ' AND district=@dist';  params.dist=district; }
     if (q) {
-      const safe = q.replace(/['"]/g,'').trim();
-      sql = `SELECT d.* FROM doctors d JOIN doctors_fts f ON f.doctor_id=d.id WHERE doctors_fts MATCH ? AND d.deleted=0`;
-      params.push(`"${safe}"`);
-      if (specialty){ sql+=" AND d.specialty=?"; params.push(specialty); }
-      if (district) { sql+=" AND d.district=?";  params.push(district); }
-    } else {
-      sql = "SELECT * FROM doctors WHERE deleted=0";
-      if (specialty){ sql+=" AND specialty=?"; params.push(specialty); }
-      if (district) { sql+=" AND district=?";  params.push(district); }
+      const safe = q.replace(/['"%]/g,'').trim();
+      where += ` AND (name LIKE @q OR specialty LIKE @q OR about LIKE @q)`;
+      params.q = `%${safe}%`;
     }
-    const orderMap = { fee_low:'fee ASC', fee_high:'fee DESC', experience:'experience DESC' };
-    sql += ` ORDER BY ${orderMap[sortBy]||'rating DESC'} LIMIT ${PAGE_SIZE} OFFSET ${off*PAGE_SIZE}`;
-    return db.prepare(sql).all(...params).map(_mapDoctor);
+    const rows = await _all(
+      `SELECT * FROM doctors ${where} ORDER BY ${order} OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+      params
+    );
+    return rows.map(_mapDoctor);
   },
-
-  addDoctor(data) {
-    if (this.bmdcExists(data.bmdc)) return { error: 'এই BMDC নম্বর আগেই registered' };
-    const info = _run(`INSERT INTO doctors(name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,chamber_time,
-      visit_location,visit_days,visit_hours,district,experience,fee,phone,email,about,dr_type,
-      medical_college,gender,languages,available,rating,reviews_count) VALUES(?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,0)`,
-      [data.name,data.specialty,JSON.stringify(data.degrees||[]),data.bmdc,
-       data.hospital||'',data.chamber||'',data.chamberTime||'',data.visitLocation||'',
-       data.visitDays||'',JSON.stringify(data.visitHours||[]),data.district||'',
-       parseInt(data.experience)||0,parseInt(data.fee)||0,data.phone||'',data.email||'',
-       data.about||'',data.drType||'',data.medicalCollege||'',data.gender||'',data.languages||'']);
-    _run("INSERT INTO doctors_fts(doctor_id,name,specialty,about) VALUES(?,?,?,?)",
-      [info.lastInsertRowid,data.name,data.specialty||'',data.about||'']);
-    _audit(null,'admin','add_doctor','doctor',info.lastInsertRowid,{bmdc:data.bmdc});
-    return { doctor:_mapDoctor(_get("SELECT * FROM doctors WHERE id=?", info.lastInsertRowid)) };
+  async addDoctor(data) {
+    if (await _async.bmdcExists(data.bmdc)) return { error:'এই BMDC নম্বর আগেই registered' };
+    const res = await _run(`INSERT INTO doctors(name,specialty,degrees,bmdc,bmdc_verified,hospital,chamber,
+      chamber_time,visit_location,visit_days,visit_hours,district,experience,fee,phone,email,about,
+      dr_type,medical_college,gender,languages,available,rating,reviews_count)
+      OUTPUT INSERTED.id AS new_id
+      VALUES(@n,@s,@dg,@b,1,@h,@ch,@ct,@vl,@vd,@vh,@d,@ex,@f,@ph,@em,@ab,@t,@mc,@g,@la,1,0,0)`,
+      { n:data.name, s:data.specialty, dg:JSON.stringify(data.degrees||[]), b:data.bmdc,
+        h:data.hospital||'', ch:data.chamber||'', ct:data.chamberTime||'',
+        vl:data.visitLocation||'', vd:data.visitDays||'', vh:JSON.stringify(data.visitHours||[]),
+        d:data.district||'', ex:parseInt(data.experience)||0, f:parseInt(data.fee)||0,
+        ph:E(data.phone||''), em:E(data.email||''), ab:data.about||'',
+        t:data.drType||'', mc:data.medicalCollege||'', g:data.gender||'', la:data.languages||'' });
+    const doctor = _mapDoctor(await _get(`SELECT * FROM doctors WHERE id=@id`,{id:res.lastId}));
+    await _audit(null,'admin','add_doctor','doctor',res.lastId,{bmdc:data.bmdc});
+    return { doctor };
   },
-
-  deleteDoctor(id) {
-    const doc = _get("SELECT user_id FROM doctors WHERE id=?", id);
-    _run("UPDATE doctors SET deleted=1,deleted_at=datetime('now') WHERE id=?", [id]);
-    _run("DELETE FROM doctors_fts WHERE doctor_id=?", [id]);
-    if (doc?.user_id) _run("UPDATE users SET deleted=1,deleted_at=datetime('now') WHERE id=?", [doc.user_id]);
-    _audit(null,'admin','delete_doctor','doctor',id);
+  async deleteDoctor(id) {
+    const doc = await _get(`SELECT user_id FROM doctors WHERE id=@id`,{id});
+    await _query(`UPDATE doctors SET deleted=1,deleted_at=CONVERT(NVARCHAR,GETDATE(),120) WHERE id=@id`,{id});
+    if (doc?.user_id) await _query(`UPDATE users SET deleted=1,deleted_at=CONVERT(NVARCHAR,GETDATE(),120) WHERE id=@uid`,{uid:doc.user_id});
+    await _audit(null,'admin','delete_doctor','doctor',id);
   },
 
   // Reviews
-  getReviewsByDoctor(id)  { return _all("SELECT * FROM reviews WHERE doctor_id=? ORDER BY date DESC", id).map(_mapReview); },
-  getReviewsByPatient(id) { return _all("SELECT * FROM reviews WHERE patient_id=? ORDER BY date DESC", id).map(_mapReview); },
-  getAllReviews()          { return _all("SELECT * FROM reviews ORDER BY date DESC").map(_mapReview); },
-  markHelpful(id)         { _run("UPDATE reviews SET helpful=helpful+1 WHERE id=?", [id]); },
-
-  checkReviewLimitMonthly(pid) {
-    const d = new Date(); d.setDate(1); d.setHours(0,0,0,0);
-    return _get("SELECT COUNT(*) AS c FROM reviews WHERE patient_id=? AND date>=?",
-      pid, d.toISOString().split('T')[0])?.c || 0;
+  async getReviewsByDoctor(id) {
+    return (await _all(`SELECT * FROM reviews WHERE doctor_id=@id ORDER BY date DESC`,{id})).map(_mapReview);
   },
-  checkNetworkReviewMonthly(hint) {
+  async getReviewsByPatient(id) {
+    return (await _all(`SELECT * FROM reviews WHERE patient_id=@id ORDER BY date DESC`,{id})).map(_mapReview);
+  },
+  async getAllReviews() {
+    return (await _all(`SELECT * FROM reviews ORDER BY date DESC`)).map(_mapReview);
+  },
+  async markHelpful(id) {
+    await _query(`UPDATE reviews SET helpful=helpful+1 WHERE id=@id`,{id});
+  },
+  async checkReviewLimitMonthly(pid) {
+    const d = new Date(); d.setDate(1); d.setHours(0,0,0,0);
+    const r = await _get(`SELECT COUNT(*) AS c FROM reviews WHERE patient_id=@pid AND date>=@d`,
+      { pid, d:d.toISOString().split('T')[0] });
+    return r?.c||0;
+  },
+  async checkNetworkReviewMonthly(hint) {
     if (!hint) return 0;
     const d = new Date(); d.setDate(1); d.setHours(0,0,0,0);
-    return _get("SELECT COUNT(*) AS c FROM reviews WHERE network_hint=? AND date>=?",
-      hint, d.toISOString().split('T')[0])?.c || 0;
+    const r = await _get(`SELECT COUNT(*) AS c FROM reviews WHERE network_hint=@h AND date>=@d`,
+      { h:hint, d:d.toISOString().split('T')[0] });
+    return r?.c||0;
   },
-
-  addReview(doctorId, patientId, patientName, rating, comment, fileData, deviceFp, networkHint) {
-    const u = _get("SELECT banned,phone,device_fp,network_hint FROM users WHERE id=?", patientId);
-    if (u?.banned)                              return { error: 'আপনার account বন্ধ করা হয়েছে' };
-    if (deviceFp  && this.isDeviceBanned(deviceFp))    return { error: 'এই device থেকে review দেওয়া সম্ভব নয়' };
-    if (networkHint && this.isNetworkBanned(networkHint)) return { error: 'এই network থেকে review দেওয়া সম্ভব নয়' };
-
-    const monthCount = this.checkReviewLimitMonthly(patientId);
-    if (monthCount >= 20) {
-      this.banUser(patientId, 'monthly_review_limit');
-      if (deviceFp)    _banDevice(deviceFp,    'monthly_review_limit');
-      if (networkHint) _banNetwork(networkHint, 'monthly_review_limit');
-      return { error: 'মাসিক ২০টির সীমা পূর্ণ। account বন্ধ হয়েছে।' };
+  async addReview(doctorId, patientId, patientName, rating, comment, fileData, deviceFp, networkHint) {
+    const u = await _get(`SELECT banned,phone,device_fp,network_hint FROM users WHERE id=@id`,{id:patientId});
+    if (u?.banned)                                                    return { error:'আপনার account বন্ধ করা হয়েছে' };
+    if (deviceFp    && await _async.isDeviceBanned(deviceFp))         return { error:'এই device থেকে review দেওয়া সম্ভব নয়' };
+    if (networkHint && await _async.isNetworkBanned(networkHint))     return { error:'এই network থেকে review দেওয়া সম্ভব নয়' };
+    const mc = await _async.checkReviewLimitMonthly(patientId);
+    if (mc >= 20) {
+      await _async.banUser(patientId,'monthly_review_limit');
+      if (deviceFp)    await _banDevice(deviceFp,'monthly_review_limit');
+      if (networkHint) await _banNetwork(networkHint,'monthly_review_limit');
+      return { error:'মাসিক ২০টির সীমা পূর্ণ। account বন্ধ হয়েছে।' };
     }
-
-    const netCount = this.checkNetworkReviewMonthly(networkHint);
-    if (netCount >= 20) {
-      this.banUser(patientId, 'network_review_limit');
-      if (networkHint) _banNetwork(networkHint, 'network_review_limit');
-      return { error: 'এই network থেকে সীমা অতিক্রম। account বন্ধ হয়েছে।' };
+    const nc = await _async.checkNetworkReviewMonthly(networkHint);
+    if (nc >= 20) {
+      await _async.banUser(patientId,'network_review_limit');
+      if (networkHint) await _banNetwork(networkHint,'network_review_limit');
+      return { error:'এই network থেকে সীমা অতিক্রম। account বন্ধ হয়েছে।' };
     }
-
-    if (_get("SELECT id FROM reviews WHERE doctor_id=? AND patient_id=?", doctorId, patientId))
-      return { error: 'আপনি এই ডাক্তারকে আগেই review করেছেন' };
-
-    const reviewId = db.transaction(() => {
-      const ri = _run(`INSERT INTO reviews(doctor_id,patient_id,patient_name,rating,comment,date,helpful,replies,verification_status,device_fp,network_hint)
-        VALUES(?,?,?,?,?,date('now'),0,'[]','pending',?,?)`,
-        [doctorId,patientId,patientName,rating,comment,deviceFp||null,networkHint||null]);
-      const rid = ri.lastInsertRowid;
-      if (fileData?.data) {
-        _run("INSERT INTO review_files(review_id,file_data,file_name,mime_type) VALUES(?,?,?,?)",
-          [rid,fileData.data,fileData.name,fileData.type]);
-        _run("UPDATE reviews SET file_ref=? WHERE id=?", [rid,rid]);
-      }
-      return rid;
-    })();
-
-    this._recalcRating(doctorId);
-    _audit(patientId,'patient','add_review','review',reviewId,{doctorId,rating});
-    return { review:_mapReview(_get("SELECT * FROM reviews WHERE id=?", reviewId)), remaining:20-(monthCount+1) };
+    if (await _get(`SELECT id FROM reviews WHERE doctor_id=@did AND patient_id=@pid`,{did:doctorId,pid:patientId}))
+      return { error:'আপনি এই ডাক্তারকে আগেই review করেছেন' };
+    const rRes = await _run(`INSERT INTO reviews(doctor_id,patient_id,patient_name,rating,comment,date,helpful,replies,verification_status,device_fp,network_hint)
+      OUTPUT INSERTED.id AS new_id
+      VALUES(@did,@pid,@pn,@rt,@cm,CONVERT(NVARCHAR,GETDATE(),23),0,'[]','pending',@df,@nh)`,
+      { did:doctorId, pid:patientId, pn:E(patientName), rt:rating, cm:E(comment), df:deviceFp||null, nh:networkHint||null });
+    const reviewId = rRes.lastId;
+    if (fileData?.data) {
+      await _query(`INSERT INTO review_files(review_id,file_data,file_name,mime_type) VALUES(@rid,@fd,@fn,@mt)`,
+        { rid:reviewId, fd:E(fileData.data), fn:E(fileData.name), mt:fileData.type });
+      await _query(`UPDATE reviews SET file_ref=@rid WHERE id=@rid`,{rid:reviewId});
+    }
+    await _recalcRating(doctorId);
+    await _audit(patientId,'patient','add_review','review',reviewId,{doctorId,rating});
+    const rev = _mapReview(await _get(`SELECT * FROM reviews WHERE id=@id`,{id:reviewId}));
+    return { review:rev, remaining:20-(mc+1) };
   },
-
-  _recalcRating(doctorId) {
-    const a = _get("SELECT AVG(rating) AS avg_r, COUNT(*) AS cnt FROM reviews WHERE doctor_id=?", doctorId);
-    _run("UPDATE doctors SET rating=?,reviews_count=? WHERE id=?",
-      [Math.round((a?.avg_r||0)*10)/10, a?.cnt||0, doctorId]);
-  },
-
-  addReply(reviewId, authorId, authorName, authorRole, text) {
-    if (!text?.trim()) return { error: 'Reply text দিন' };
-    const r = _get("SELECT replies FROM reviews WHERE id=?", reviewId);
-    if (!r) return { error: 'Review পাওয়া যায়নি' };
+  async addReply(reviewId, authorId, authorName, authorRole, text) {
+    if (!text?.trim()) return { error:'Reply text দিন' };
+    const r = await _get(`SELECT replies FROM reviews WHERE id=@id`,{id:reviewId});
+    if (!r) return { error:'Review পাওয়া যায়নি' };
     const replies = _jp(r.replies,[]);
-    const reply = { id:Date.now(), authorId, authorName, authorRole, text:text.trim(), date:new Date().toISOString().split('T')[0] };
+    const reply   = { id:Date.now(), authorId, authorName, authorRole, text:text.trim(), date:new Date().toISOString().split('T')[0] };
     replies.push(reply);
-    _run("UPDATE reviews SET replies=? WHERE id=?", [JSON.stringify(replies), reviewId]);
-    _audit(authorId,authorRole,'add_reply','review',reviewId);
+    await _query(`UPDATE reviews SET replies=@rp WHERE id=@id`,{rp:JSON.stringify(replies),id:reviewId});
+    await _audit(authorId,authorRole,'add_reply','review',reviewId);
     return { success:true, reply };
   },
-
-  setReviewVerification(reviewId, status) {
-    if (!['pending','verified','flagged','removed','fake'].includes(status)) return { error:'Invalid status' };
-    // 'fake' is an alias for 'flagged' — frontend uses 'fake', normalize it
-    if (status === 'fake') status = 'flagged';
-    if (!_get("SELECT id FROM reviews WHERE id=?", reviewId)) return { error:'Review পাওয়া যায়নি' };
-    _run("UPDATE reviews SET verification_status=? WHERE id=?", [status, reviewId]);
-    _audit(null,'admin','verify_review','review',reviewId,{status});
+  async setReviewVerification(reviewId, status) {
+    if (status==='fake') status='flagged';
+    if (!['pending','verified','flagged','removed'].includes(status)) return { error:'Invalid status' };
+    if (!(await _get(`SELECT id FROM reviews WHERE id=@id`,{id:reviewId}))) return { error:'Review পাওয়া যায়নি' };
+    await _query(`UPDATE reviews SET verification_status=@s WHERE id=@id`,{s:status,id:reviewId});
+    await _audit(null,'admin','verify_review','review',reviewId,{status});
     return { success:true };
   },
-
-  deleteReview(reviewId) {
-    const r = _get("SELECT doctor_id FROM reviews WHERE id=?", reviewId);
-    _run("DELETE FROM review_files WHERE review_id=?", [reviewId]);
-    _run("DELETE FROM reviews WHERE id=?", [reviewId]);
-    if (r) this._recalcRating(r.doctor_id);
-    _audit(null,'admin','delete_review','review',reviewId);
+  async deleteReview(reviewId) {
+    const r = await _get(`SELECT doctor_id FROM reviews WHERE id=@id`,{id:reviewId});
+    await _query(`DELETE FROM review_files WHERE review_id=@id`,{id:reviewId});
+    await _query(`DELETE FROM reviews WHERE id=@id`,{id:reviewId});
+    if (r) await _recalcRating(r.doctor_id);
+    await _audit(null,'admin','delete_review','review',reviewId);
   },
-
-  getReviewFile(reviewId) { return _get("SELECT * FROM review_files WHERE review_id=?", reviewId)||null; },
+  async getReviewFile(reviewId) {
+    const f = await _get(`SELECT * FROM review_files WHERE review_id=@id`,{id:reviewId});
+    if (!f) return null;
+    return { ...f, file_data:D(f.file_data), file_name:D(f.file_name) };
+  },
 
   // BMDC
-  getRevokedBmdc() { return _all("SELECT bmdc FROM bmdc_revoked").map(r=>r.bmdc); },
-
-  revokeBmdc(bmdc, reason) {
-    _run("INSERT OR IGNORE INTO bmdc_revoked(bmdc,reason) VALUES(?,?)", [bmdc.trim(), reason||'admin']);
-    _audit(null,'admin','revoke_bmdc',null,null,{bmdc});
-    return this._runBmdcSync();
+  async getRevokedBmdc() {
+    return (await _all(`SELECT bmdc FROM bmdc_revoked`)).map(r=>r.bmdc);
   },
-
-  reinstateBmdc(bmdc) {
-    _run("DELETE FROM bmdc_revoked WHERE bmdc=?", [bmdc.trim()]);
-    const doc = _get("SELECT id,user_id FROM doctors WHERE bmdc=?", bmdc.trim());
+  async getBmdcSyncInfo() {
+    const last = await _get(`SELECT TOP 1 date FROM bmdc_sync_log ORDER BY id DESC`);
+    const log  = await _all(`SELECT TOP 5 * FROM bmdc_sync_log ORDER BY id DESC`);
+    return { lastSync:last?.date||'কখনো হয়নি', log, revokedCount:(await _async.getRevokedBmdc()).length };
+  },
+  async revokeBmdc(bmdc, reason) {
+    await _query(`IF NOT EXISTS (SELECT 1 FROM bmdc_revoked WHERE bmdc=@b) INSERT INTO bmdc_revoked(bmdc,reason) VALUES(@b,@r)`,
+      { b:bmdc.trim(), r:reason||'admin' });
+    await _audit(null,'admin','revoke_bmdc',null,null,{bmdc});
+    return _async._runBmdcSync();
+  },
+  async reinstateBmdc(bmdc) {
+    await _query(`DELETE FROM bmdc_revoked WHERE bmdc=@b`,{b:bmdc.trim()});
+    const doc = await _get(`SELECT id,user_id FROM doctors WHERE bmdc=@b`,{b:bmdc.trim()});
     if (doc) {
-      _run("UPDATE doctors SET bmdc_verified=1,bmdc_suspended=0 WHERE id=?", [doc.id]);
-      if (doc.user_id) _run("UPDATE users SET banned=0,ban_reason=NULL WHERE id=? AND ban_reason='bmdc_revoked'", [doc.user_id]);
+      await _query(`UPDATE doctors SET bmdc_verified=1,bmdc_suspended=0 WHERE id=@id`,{id:doc.id});
+      if (doc.user_id) await _query(`UPDATE users SET banned=0,ban_reason=NULL WHERE id=@uid AND ban_reason='bmdc_revoked'`,{uid:doc.user_id});
     }
-    _audit(null,'admin','reinstate_bmdc',null,null,{bmdc});
+    await _audit(null,'admin','reinstate_bmdc',null,null,{bmdc});
     return { success:true };
   },
-
-  _runBmdcSync() {
-    const revoked = this.getRevokedBmdc().map(b=>b.toLowerCase().trim());
-    const doctors = _all("SELECT id,user_id,bmdc FROM doctors WHERE deleted=0");
+  async _runBmdcSync() {
+    const revoked = (await _async.getRevokedBmdc()).map(b=>b.toLowerCase().trim());
+    const doctors = await _all(`SELECT id,user_id,bmdc FROM doctors WHERE deleted=0`);
     let suspended = 0;
-    db.transaction(() => {
-      for (const d of doctors) {
-        if (revoked.includes((d.bmdc||'').toLowerCase().trim())) {
-          _run("UPDATE doctors SET bmdc_verified=0,bmdc_suspended=1 WHERE id=?", [d.id]);
-          if (d.user_id) {
-            const u = _get("SELECT banned FROM users WHERE id=?", d.user_id);
-            if (u&&!u.banned) { _run("UPDATE users SET banned=1,ban_reason='bmdc_revoked',banned_at=datetime('now') WHERE id=?", [d.user_id]); suspended++; }
+    for (const d of doctors) {
+      if (revoked.includes((d.bmdc||'').toLowerCase().trim())) {
+        await _query(`UPDATE doctors SET bmdc_verified=0,bmdc_suspended=1 WHERE id=@id`,{id:d.id});
+        if (d.user_id) {
+          const u = await _get(`SELECT banned FROM users WHERE id=@uid`,{uid:d.user_id});
+          if (u && !u.banned) {
+            await _query(`UPDATE users SET banned=1,ban_reason='bmdc_revoked',banned_at=CONVERT(NVARCHAR,GETDATE(),120) WHERE id=@uid`,{uid:d.user_id});
+            suspended++;
           }
         }
       }
-      _run("INSERT INTO bmdc_sync_log(date,revoked_checked,suspended) VALUES(datetime('now'),?,?)", [revoked.length, suspended]);
-    })();
+    }
+    await _query(`INSERT INTO bmdc_sync_log(date,revoked_checked,suspended) VALUES(CONVERT(NVARCHAR,GETDATE(),120),@c,@s)`,
+      { c:revoked.length, s:suspended });
     return { suspended, checked:doctors.length };
   },
-
-  getBmdcSyncInfo() {
-    return { lastSync:_get("SELECT date FROM bmdc_sync_log ORDER BY id DESC LIMIT 1")?.date||'কখনো হয়নি',
-      log:_all("SELECT * FROM bmdc_sync_log ORDER BY id DESC LIMIT 5"),
-      revokedCount:this.getRevokedBmdc().length };
-  },
-
-  autoBmdcSync() {
-    const last = _get("SELECT value FROM site_meta WHERE key='bmdc_last_sync'");
-    if (!last || (Date.now()-parseInt(last.value||'0'))>86_400_000) {
-      this._runBmdcSync();
-      _run("INSERT OR REPLACE INTO site_meta(key,value) VALUES('bmdc_last_sync',?)", [Date.now().toString()]);
+  async autoBmdcSync() {
+    const last = await _get(`SELECT value FROM site_meta WHERE [key]='bmdc_last_sync'`);
+    if (!last || (Date.now()-parseInt(last.value||'0'))>86400000) {
+      await _async._runBmdcSync();
+      await _query(`IF EXISTS (SELECT 1 FROM site_meta WHERE [key]='bmdc_last_sync')
+        UPDATE site_meta SET value=@v WHERE [key]='bmdc_last_sync'
+        ELSE INSERT INTO site_meta([key],value) VALUES('bmdc_last_sync',@v)`,
+        { v:Date.now().toString() });
     }
   },
 
   // Stats
-  getStats() {
-    return {
-      totalDoctors:   _get("SELECT COUNT(*) AS c FROM doctors  WHERE deleted=0").c,
-      totalPatients:  _get("SELECT COUNT(*) AS c FROM users    WHERE role='patient' AND deleted=0").c,
-      totalReviews:   _get("SELECT COUNT(*) AS c FROM reviews").c,
-      totalVisits:    this.getVisitCount(),
-      pendingReviews: _get("SELECT COUNT(*) AS c FROM reviews  WHERE verification_status='pending'").c,
-      bannedUsers:    _get("SELECT COUNT(*) AS c FROM users    WHERE banned=1").c,
-      bannedDevices:  _get("SELECT COUNT(*) AS c FROM banned_devices").c,
-      bannedNetworks: _get("SELECT COUNT(*) AS c FROM banned_networks").c,
-    };
+  async getStats() {
+    const [d,p,r,pend,ban,dev,net] = await Promise.all([
+      _get(`SELECT COUNT(*) AS c FROM doctors WHERE deleted=0`),
+      _get(`SELECT COUNT(*) AS c FROM users WHERE role='patient' AND deleted=0`),
+      _get(`SELECT COUNT(*) AS c FROM reviews`),
+      _get(`SELECT COUNT(*) AS c FROM reviews WHERE verification_status='pending'`),
+      _get(`SELECT COUNT(*) AS c FROM users WHERE banned=1`),
+      _get(`SELECT COUNT(*) AS c FROM banned_devices`),
+      _get(`SELECT COUNT(*) AS c FROM banned_networks`),
+    ]);
+    return { totalDoctors:d?.c||0, totalPatients:p?.c||0, totalReviews:r?.c||0,
+      totalVisits:await _async.getVisitCount(), pendingReviews:pend?.c||0,
+      bannedUsers:ban?.c||0, bannedDevices:dev?.c||0, bannedNetworks:net?.c||0 };
   },
-
-  getAllUsers()   { return _all("SELECT * FROM users WHERE deleted=0 ORDER BY id DESC").map(_mapUser); },
-  getAuditLog(limit=50, offset=0) { return _all("SELECT * FROM audit_log ORDER BY ts DESC LIMIT ? OFFSET ?", limit, offset); },
+  async getAuditLog(limit=50, offset=0) {
+    return _all(`SELECT * FROM audit_log ORDER BY ts DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,{offset,limit});
+  },
 };
+
+// ── Direct async export (Node v24 compatible) ─────────────────
+// All methods are async — server.js uses await on each call
+module.exports = _async;

@@ -1,6 +1,4 @@
 node_modules/
-data/
 .env
-*.db
-*.db-wal
-*.db-shm
+*.log
+npm-debug.log*

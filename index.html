@@ -9,8 +9,6 @@
 </head>
 <body>
 
-<!-- NAVBAR -->
-
 <nav class="navbar">
   <div class="navbar-brand" onclick="showPage('home')">
     <span class="logo-icon">🩺</span>Doc<span class="brand-colored">Review</span><span class="brand-bd">BD</span>
@@ -22,6 +20,7 @@
   <div class="user-menu" id="nav-user-area"></div>
 </nav>
 
+<!-- HOME -->
 <div id="page-home" class="page">
   <section class="hero">
     <div class="hero-content">
@@ -46,9 +45,7 @@
         <span>🔍</span>
         <input type="text" id="search-input" placeholder="ডাক্তারের নাম বা specialty লিখুন..." onkeydown="if(event.key==='Enter')handleSearch()">
       </div>
-      <select class="search-select" id="search-specialty">
-        <option value="">বেছে নিন</option>
-      </select>
+      <select class="search-select" id="search-specialty"><option value="">বেছে নিন</option></select>
       <button class="search-btn" onclick="handleSearch()">খুঁজুন</button>
     </div>
   </section>
@@ -61,9 +58,9 @@
     <div class="doctors-grid" id="featured-doctors"></div>
   </div>
 
-  <!-- Specialty-wise sections (Fix 5) -->
   <div id="specialist-sections"></div>
 
+  <div class="section">
     <div style="max-width:1100px;margin:0 auto">
       <h2 class="section-title" style="text-align:center;margin-bottom:40px">কেন <span>DocReview BD</span>?</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:24px">
@@ -76,6 +73,7 @@
   </div>
 </div>
 
+<!-- DOCTORS -->
 <div id="page-doctors" class="page">
   <div class="section">
     <div class="section-header">
@@ -93,20 +91,22 @@
     </div>
     <div class="sort-bar">
       <span class="sort-label">সাজান:</span>
-      <button class="sort-btn active" data-sort="rating" onclick="sortDoctors('rating')">⭐ Rating</button>
-      <button class="sort-btn" data-sort="fee_low" onclick="sortDoctors('fee_low')">💰 কম Fee</button>
-      <button class="sort-btn" data-sort="fee_high" onclick="sortDoctors('fee_high')">💰 বেশি Fee</button>
-      <button class="sort-btn" data-sort="experience" onclick="sortDoctors('experience')">⏱️ অভিজ্ঞতা</button>
+      <button class="sort-btn active" data-sort="rating"     onclick="sortDoctors('rating')">⭐ Rating</button>
+      <button class="sort-btn"        data-sort="fee_low"    onclick="sortDoctors('fee_low')">💰 কম Fee</button>
+      <button class="sort-btn"        data-sort="fee_high"   onclick="sortDoctors('fee_high')">💰 বেশি Fee</button>
+      <button class="sort-btn"        data-sort="experience" onclick="sortDoctors('experience')">⏱️ অভিজ্ঞতা</button>
     </div>
     <div class="specialty-pills" id="specialty-pills"></div>
     <div class="doctors-grid" id="doctors-list"></div>
   </div>
 </div>
 
+<!-- DOCTOR PROFILE -->
 <div id="page-doctor-profile" class="page">
   <div id="doctor-profile-content"></div>
 </div>
 
+<!-- PATIENT DASHBOARD -->
 <div id="page-patient-dashboard" class="page">
   <div class="dash-layout">
     <div class="dash-sidebar">
@@ -143,6 +143,7 @@
   </div>
 </div>
 
+<!-- DOCTOR DASHBOARD -->
 <div id="page-doctor-dashboard" class="page">
   <div class="dash-layout">
     <div class="dash-sidebar">
@@ -178,10 +179,12 @@
   </div>
 </div>
 
+<!-- PROFILE -->
 <div id="page-profile" class="page">
   <div id="profile-content"></div>
 </div>
 
+<!-- SETTINGS -->
 <div id="page-settings" class="page">
   <div style="background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:40px 5%">
     <h1 style="color:white;font-family:var(--font-head);font-size:1.6rem;font-weight:800">⚙️ Settings</h1>
@@ -190,6 +193,7 @@
   <div class="section" style="padding-top:32px"><div id="settings-content"></div></div>
 </div>
 
+<!-- ADMIN -->
 <div id="page-admin" class="page">
   <div style="background:linear-gradient(135deg,var(--navy),var(--navy-light));padding:40px 5%">
     <h1 style="color:white;font-family:var(--font-head);font-size:1.6rem;font-weight:800">⚙️ Admin Panel</h1>
@@ -220,7 +224,7 @@
     </div>
     <div class="tab-content" id="tab-admin-reviews">
       <div style="background:rgba(14,165,233,0.06);border:1px solid rgba(14,165,233,0.2);border-radius:var(--radius-sm);padding:14px 18px;margin-bottom:20px;font-size:0.85rem;color:var(--gray-600)">
-        🔒 <strong>গোপনীয়তা নোট:</strong> রোগীর জমা দেওয়া ফাইল শুধুমাত্র এই Admin Panel-এ দেখা যাবে। অন্য কোনো user বা ডাক্তার দেখতে পাবেন না।
+        🔒 <strong>গোপনীয়তা নোট:</strong> রোগীর জমা দেওয়া ফাইল শুধুমাত্র এই Admin Panel-এ দেখা যাবে।
       </div>
       <div id="admin-reviews-list"></div>
     </div>
@@ -230,6 +234,7 @@
   </div>
 </div>
 
+<!-- FOOTER -->
 <footer>
   <div class="footer-top">
     <div>
@@ -360,7 +365,7 @@
         <div class="si"><div class="snum">৩</div><div>Chamber</div></div>
       </div>
 
-      <!-- STEP 1 -->
+      <!-- Step 1 -->
       <div class="doc-step active" id="doc-step-1">
         <div class="form-row">
           <div class="form-group"><label>নাম (Dr. সহ) *</label><input class="form-control" id="doc-name" placeholder="Dr. আপনার নাম"></div>
@@ -381,13 +386,11 @@
         <div class="step-nav"><button class="btn-next" onclick="doctorStep1Next()">পরবর্তী →</button></div>
       </div>
 
-      <!-- STEP 2 -->
+      <!-- Step 2 -->
       <div class="doc-step" id="doc-step-2">
         <div class="form-row">
           <div class="form-group"><label>Specialty *</label>
-            <select class="form-control" id="doc-specialty">
-        <option value="">বেছে নিন</option>
-      </select>
+            <select class="form-control" id="doc-specialty"><option value="">বেছে নিন</option></select>
           </div>
           <div class="form-group"><label>ডাক্তারের ধরন *</label>
             <select class="form-control" id="doc-dr-type">
@@ -408,13 +411,9 @@
           <div class="form-group"><label>BMDC No. * (unique)</label><input class="form-control" id="doc-bmdc" placeholder="A-XXXXX"></div>
           <div class="form-group"><label>অভিজ্ঞতা (বছর) *</label><input class="form-control" type="number" id="doc-experience" min="0" placeholder="বছর"></div>
         </div>
-        <div class="form-group"><label>Medical College / বিশ্ববিদ্যালয় *</label>
-          <select class="form-control" id="doc-medical-college">
-        <option value="">Medical College বেছে নিন</option>
-      </select>
+        <div class="form-group"><label>Medical College *</label>
+          <select class="form-control" id="doc-medical-college"><option value="">বেছে নিন</option></select>
         </div>
-
-        <!-- DEGREE BUILDER -->
         <div class="form-group">
           <label>একাডেমিক Degree * <span style="font-weight:400;color:var(--gray-400)">(একাধিক যোগ করা যাবে)</span></label>
           <div class="degree-builder">
@@ -440,7 +439,6 @@
             <div id="degrees-added" style="margin-top:10px"></div>
           </div>
         </div>
-
         <div class="form-group"><label>About <span style="font-weight:400;color:var(--gray-400)">(ঐচ্ছিক)</span></label>
           <textarea class="form-control" id="doc-about" rows="3" placeholder="আপনার বিশেষজ্ঞতা সম্পর্কে লিখুন..."></textarea>
         </div>
@@ -450,7 +448,7 @@
         </div>
       </div>
 
-      <!-- STEP 3 -->
+      <!-- Step 3 -->
       <div class="doc-step" id="doc-step-3">
         <form onsubmit="handleDoctorRegister(event)">
           <div class="form-group"><label>বর্তমান কর্মস্থল / Hospital *</label>
@@ -507,9 +505,7 @@
           </div>
           <div class="form-row">
             <div class="form-group"><label>জেলা *</label>
-              <select class="form-control" id="doc-district" required>
-        <option value="">বেছে নিন</option>
-      </select>
+              <select class="form-control" id="doc-district" required><option value="">বেছে নিন</option></select>
             </div>
             <div class="form-group"><label>Visit Fee (৳) *</label>
               <input class="form-control" type="number" id="doc-fee" min="0" placeholder="যেমন: 1500" required>
@@ -530,7 +526,6 @@
   <div class="modal">
     <div class="modal-header"><h2>✍️ Review দিন</h2><button class="modal-close" onclick="closeModal('modal-review')">✕</button></div>
     <div class="modal-body">
-      <div style="font-size:0.82rem;color:var(--teal);margin-bottom:16px;background:rgba(14,165,233,0.06);padding:10px 14px;border-radius:8px" id="review-limit-info"></div>
       <form id="review-form">
         <div class="form-group">
           <label>Rating দিন *</label>
@@ -550,7 +545,7 @@
           <label>Visit সংক্রান্ত ফাইল <span style="font-weight:400;color:var(--gray-400)">(ছবি বা PDF, সর্বোচ্চ ৫MB)</span></label>
           <input class="form-control" type="file" id="review-file" accept="image/*,.pdf" style="padding:8px">
           <div style="margin-top:8px;padding:10px 12px;background:rgba(14,165,233,0.05);border:1px solid rgba(14,165,233,0.15);border-radius:8px;font-size:0.78rem;color:var(--gray-600);line-height:1.6">
-            🔒 <strong>আপনার ফাইল সম্পূর্ণ নিরাপদ ও গোপনীয়।</strong> শুধুমাত্র Admin এটি দেখতে পারবেন — অন্য কোনো user বা ডাক্তার দেখতে পাবেন না। এটি সত্যিকারের visit যাচাই করতে ব্যবহার করা হয়।
+            🔒 <strong>আপনার ফাইল সম্পূর্ণ নিরাপদ ও গোপনীয়।</strong> শুধুমাত্র Admin এটি দেখতে পারবেন।
           </div>
         </div>
         <button class="btn-full" type="submit">Review জমা দিন</button>
@@ -595,9 +590,7 @@
         <div class="form-row">
           <div class="form-group"><label>নাম *</label><input class="form-control" id="add-name" placeholder="Dr. নাম" required></div>
           <div class="form-group"><label>Specialty *</label>
-            <select class="form-control" id="add-specialty" required>
-        <option value="">বেছে নিন</option>
-      </select>
+            <select class="form-control" id="add-specialty" required><option value="">বেছে নিন</option></select>
           </div>
         </div>
         <div class="form-row">
@@ -607,9 +600,7 @@
         <div class="form-row">
           <div class="form-group"><label>BMDC No. *</label><input class="form-control" id="add-bmdc" placeholder="A-XXXXX" required></div>
           <div class="form-group"><label>জেলা *</label>
-            <select class="form-control" id="add-district" required>
-        <option value="">বেছে নিন</option>
-      </select>
+            <select class="form-control" id="add-district" required><option value="">বেছে নিন</option></select>
           </div>
         </div>
         <div class="form-group"><label>Hospital *</label><input class="form-control" id="add-hospital" required></div>
@@ -629,7 +620,7 @@
   </div>
 </div>
 
-<!-- OTP VERIFY MODAL -->
+<!-- OTP MODAL -->
 <div class="modal-overlay" id="modal-otp-verify">
   <div class="modal" style="max-width:440px">
     <div class="modal-header">
@@ -671,7 +662,6 @@
   </div>
 </div>
 
-<!-- TOAST CONTAINER -->
 <div class="toast-container" id="toast-container"></div>
 
 <script src="js/database.js"></script>

@@ -218,7 +218,6 @@ img { max-width: 100%; }
 .view-all { color: var(--teal); font-weight: 600; font-size: 0.9rem; }
 .view-all:hover { text-decoration: underline; }
 
-/* ===== SORT/FILTER ===== */
 .sort-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .sort-label { font-size: 0.85rem; color: var(--gray-400); font-weight: 500; }
 .sort-btn {
@@ -664,7 +663,6 @@ footer {
 
 .nav-user-area { display: flex; align-items: center; gap: 12px; }
 
-/* ===== SPECIALIST SECTIONS (Fix 5) ===== */
 .specialist-section {
   padding: 40px 5% 0;
   max-width: 1200px;

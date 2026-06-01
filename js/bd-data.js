@@ -1,8 +1,14 @@
-'use strict';
+// ============================================================
+// bd-data.js — Bangladesh Specific Data
+// All 64 districts, medical colleges (govt+private+army),
+// and all medical specialties recognized in Bangladesh
+// Source: Health Ministry BD / BMDC / DGHS
+// ============================================================
 
 const BD_DATA = {
 
-    DISTRICTS: [
+  // ─── All 64 Districts of Bangladesh ─────────────────────────
+  DISTRICTS: [
     // Dhaka Division
     "Dhaka","Gazipur","Narayanganj","Narsingdi","Manikganj","Munshiganj","Tangail","Kishoreganj","Faridpur","Rajbari","Gopalganj","Madaripur","Shariatpur",
     // Chittagong Division
@@ -21,7 +27,8 @@ const BD_DATA = {
     "Mymensingh","Jamalpur","Sherpur","Netrokona",
   ],
 
-    SPECIALTIES: [
+  // ─── All Medical Specialties (BMDC recognized) ─────────────
+  SPECIALTIES: [
     // Medicine
     "General Physician (সাধারণ চিকিৎসক)",
     "Medicine Specialist (মেডিসিন)",
@@ -91,7 +98,8 @@ const BD_DATA = {
     "Transfusion Medicine (রক্ত সঞ্চালন)",
   ],
 
-    // Source: Ministry of Health & Family Welfare / BMDC
+  // ─── All Medical Colleges of Bangladesh ─────────────────────
+  // Source: Ministry of Health & Family Welfare / BMDC
   MEDICAL_COLLEGES: {
     govt: [
       "Dhaka Medical College (DMC), Dhaka",
@@ -175,7 +183,8 @@ const BD_DATA = {
     ],
   },
 
-    getAllColleges() {
+  // ─── Helper: All colleges flat list ─────────────────────────
+  getAllColleges() {
     return [
       ...this.MEDICAL_COLLEGES.govt,
       ...this.MEDICAL_COLLEGES.army,
@@ -183,14 +192,16 @@ const BD_DATA = {
     ];
   },
 
-    populateSelect(selectId, options, placeholder = 'বেছে নিন') {
+  // ─── Populate a <select> element ────────────────────────────
+  populateSelect(selectId, options, placeholder = 'বেছে নিন') {
     const el = document.getElementById(selectId);
     if (!el) return;
     el.innerHTML = `<option value="">${placeholder}</option>` +
       options.map(o => `<option value="${o}">${o}</option>`).join('');
   },
 
-    init() {
+  // ─── Populate all dropdowns in the page ─────────────────────
+  init() {
     const allColleges = this.getAllColleges();
 
     // Specialty selects

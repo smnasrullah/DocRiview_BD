@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "sqlproj: Build docreview_bd",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"d:/DocReview_BD/docreview_bd/docreview_bd.sqlproj"
+			],
+			"problemMatcher": "$sqlproj-problem-matcher",
+			"isBackground": true,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "Builds the docreview_bd SQL project"
+		}
+	]
+}

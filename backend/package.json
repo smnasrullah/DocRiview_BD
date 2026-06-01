@@ -1,7 +1,7 @@
 {
   "name": "docreview-bd-backend",
-  "version": "2.0.0",
-  "description": "DocReview BD — Express + better-sqlite3 Backend (Upgraded)",
+  "version": "3.0.0-mssql",
+  "description": "DocReview BD \u2014 Express + Microsoft SQL Server + AES-256-GCM Encryption",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^11.10.0",
+    "mssql": "^11.0.1",
     "cors": "^2.8.6",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
@@ -21,6 +21,13 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0"
   },
-  "keywords": ["docreview", "bangladesh", "healthcare", "express", "sqlite"],
+  "keywords": [
+    "docreview",
+    "bangladesh",
+    "healthcare",
+    "express",
+    "mssql",
+    "aes-256-gcm"
+  ],
   "license": "ISC"
 }

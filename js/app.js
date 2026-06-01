@@ -14,6 +14,7 @@ function setEl(id, val) {
   if (e) e.textContent = val;
 }
 
+// ── Hero Stats ──────────────────────────────────────────────
 async function updateHeroStats() {
   const s = await DB.getStats();
   setEl('stat-visits',   (s.totalVisits  || 0).toLocaleString());
@@ -21,6 +22,7 @@ async function updateHeroStats() {
   setEl('stat-patients', (s.totalPatients|| 0).toLocaleString());
 }
 
+// ── Navigation ──────────────────────────────────────────────
 function showPage(page, data = {}) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const el = document.getElementById('page-' + page);
@@ -36,27 +38,24 @@ function showPage(page, data = {}) {
   if (page === 'admin')             renderAdmin();
 }
 
-// ── Navbar ────────────────────────────────────────────────────
-
+// ── Navbar ──────────────────────────────────────────────────
 function renderNavbar() {
   const user = DB.getSession();
   const nav  = document.getElementById('nav-user-area');
   if (!nav) return;
 
   if (user) {
-    const pic = user.profilePic
+    const pic       = user.profilePic
       ? `<img src="${user.profilePic}" class="nav-avatar-img" onclick="toggleDropdown()">`
       : `<button class="avatar-btn" onclick="toggleDropdown()" title="${user.name}">${user.avatar}</button>`;
-    const dashPage = user.role === 'admin' ? 'admin' : user.role === 'doctor' ? 'doctor-dashboard' : 'patient-dashboard';
+    const dashPage  = user.role === 'admin' ? 'admin' : user.role === 'doctor' ? 'doctor-dashboard' : 'patient-dashboard';
+    const roleEmoji = user.role === 'doctor' ? '👨‍⚕️' : user.role === 'admin' ? '⚙️' : '🧑‍🤒';
     nav.innerHTML = `
       <button class="nav-link" onclick="showPage('${dashPage}')">Dashboard</button>
       <div class="user-dropdown">
         ${pic}
         <div class="dropdown-menu" id="user-dropdown-menu">
-          <div class="dropdown-header">
-            <strong>${user.name}</strong>
-            <span class="role-badge">${user.role === 'doctor' ? '👨‍⚕️' : user.role === 'admin' ? '⚙️' : '🧑‍🤒'}</span>
-          </div>
+          <div class="dropdown-header"><strong>${user.name}</strong><span class="role-badge">${roleEmoji}</span></div>
           <button onclick="showPage('profile');closeDropdown()">👤 Profile</button>
           <button onclick="showPage('settings');closeDropdown()">⚙️ Settings</button>
           <button onclick="logout();closeDropdown()" class="danger-btn">🚪 Logout</button>
@@ -65,13 +64,12 @@ function renderNavbar() {
   } else {
     nav.innerHTML = `
       <button class="nav-btn outline" onclick="openModal('modal-login')">Login</button>
-      <button class="nav-btn" onclick="openModal('modal-reg-choice')">Sign Up</button>`;
+      <button class="nav-btn"         onclick="openModal('modal-reg-choice')">Sign Up</button>`;
   }
 }
 
 function toggleDropdown() { document.getElementById('user-dropdown-menu')?.classList.toggle('open'); }
 function closeDropdown()  { document.getElementById('user-dropdown-menu')?.classList.remove('open'); }
-
 document.addEventListener('click', e => {
   if (!e.target.closest('.user-dropdown') &&
       !e.target.closest('.avatar-btn') &&
@@ -79,7 +77,6 @@ document.addEventListener('click', e => {
 });
 
 // ── Home ─────────────────────────────────────────────────────
-
 async function renderFeaturedDoctors() {
   const c = document.getElementById('featured-doctors');
   if (!c) return;
@@ -115,13 +112,28 @@ async function renderSpecialistSections() {
 
 function specialtyIcon(specialty) {
   const map = {
-    'Cardiologist': '❤️', 'Dermatologist': '🧴', 'Orthopedic': '🦴',
-    'Gynecologist': '👩‍⚕️', 'Neurologist': '🧠', 'Pediatrician': '👶',
-    'General Physician': '🩺', 'ENT': '👂', 'Ophthalmologist': '👁️',
-    'Psychiatrist': '🧘', 'Gastroenterologist': '🫁', 'Urologist': '🔬',
-    'Oncologist': '🎗️', 'Endocrinologist': '⚗️', 'Nephrologist': '🫘',
-    'Pulmonologist': '🫁', 'Rheumatologist': '🦵', 'Hematologist': '🩸',
-    'Radiologist': '📡', 'Surgeon': '🔪', 'Pathologist': '🔭',
+    'Cardiologist': '❤️', 'Cardiology': '❤️',
+    'Dermatologist': '🧴', 'Dermatology': '🧴',
+    'Orthopedic': '🦴', 'Orthopedic Surgeon': '🦴',
+    'Gynecologist': '👩‍⚕️', 'Gynecology': '👩‍⚕️',
+    'Neurologist': '🧠', 'Neurology': '🧠',
+    'Pediatrician': '👶', 'Pediatrics': '👶',
+    'General Physician': '🩺', 'Medicine': '🩺',
+    'ENT Specialist': '👂', 'ENT': '👂',
+    'Ophthalmologist': '👁️', 'Ophthalmology': '👁️',
+    'Psychiatrist': '🧘', 'Psychiatry': '🧘',
+    'Gastroenterologist': '🫁', 'Gastroenterology': '🫁',
+    'Urologist': '🔬', 'Urology': '🔬',
+    'Oncologist': '🎗️', 'Oncology': '🎗️',
+    'Endocrinologist': '⚗️', 'Endocrinology': '⚗️',
+    'Nephrologist': '🫘', 'Nephrology': '🫘',
+    'Pulmonologist': '🫁', 'Pulmonology': '🫁',
+    'Rheumatologist': '🦵', 'Rheumatology': '🦵',
+    'Hematologist': '🩸', 'Hematology': '🩸',
+    'Radiologist': '📡', 'Radiology': '📡',
+    'Anesthesiologist': '💉', 'Anesthesiology': '💉',
+    'Surgeon': '🔪', 'Surgery': '🔪',
+    'Pathologist': '🔭', 'Pathology': '🔭',
   };
   for (const key of Object.keys(map)) {
     if (specialty.toLowerCase().includes(key.toLowerCase())) return map[key];
@@ -173,26 +185,27 @@ function doctorCardHTML(d) {
     </div>`;
 }
 
-// ── Doctors page ──────────────────────────────────────────────
-
+// ── Doctors Page ─────────────────────────────────────────────
 let currentSpecialty = '', currentDistrict = '', currentSort = 'rating';
 
 async function renderDoctorsPage(data = {}) {
   const container = document.getElementById('doctors-list');
   if (!container) return;
+
   if (data.specialty !== undefined) currentSpecialty = data.specialty;
   if (data.district  !== undefined) currentDistrict  = data.district;
-  if (data.sort      !== undefined) currentSort       = data.sort;
-  const query = data.query !== undefined ? data.query : (document.getElementById('search-input-2')?.value || '');
+  if (data.sort      !== undefined) currentSort      = data.sort;
+  const query    = data.query !== undefined ? data.query : (document.getElementById('search-input-2')?.value || '');
+  const allDocs  = await DB.getAllDoctors();
 
-  const allDocs = await DB.getAllDoctors();
   const pillsEl = document.getElementById('specialty-pills');
   if (pillsEl) {
     const specs = [...new Set(allDocs.map(d => d.specialty))];
     pillsEl.innerHTML =
       `<button class="pill ${!currentSpecialty ? 'active' : ''}" onclick="filterDoctors('')">সব</button>` +
-      specs.map(s => `<button class="pill ${currentSpecialty === s ? 'active' : ''}" onclick="filterDoctors('${s.replace(/'/g, "\\'")}'">${s}</button>`).join('');
+      specs.map(s => `<button class="pill ${currentSpecialty === s ? 'active' : ''}" onclick="filterDoctors('${s.replace(/'/g, "\\'")}')">  ${s}</button>`).join('');
   }
+
   document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === currentSort));
 
   const docs = await DB.searchDoctors(query, currentSpecialty, currentDistrict, currentSort);
@@ -203,6 +216,7 @@ async function renderDoctorsPage(data = {}) {
 
 function filterDoctors(s) { renderDoctorsPage({ specialty: s }); }
 function sortDoctors(s)   { renderDoctorsPage({ sort: s }); }
+
 function handleSearch() {
   showPage('doctors', {
     query:     document.getElementById('search-input')?.value || '',
@@ -210,8 +224,7 @@ function handleSearch() {
   });
 }
 
-// ── Doctor profile ────────────────────────────────────────────
-
+// ── Doctor Profile ───────────────────────────────────────────
 async function renderDoctorProfile(id) {
   const doc = await DB.getDoctorById(id);
   if (!doc) return;
@@ -253,8 +266,8 @@ async function renderDoctorProfile(id) {
     : reviews.sort((a, b) => new Date(b.date) - new Date(a.date)).map(r => {
         const verBadge = r.verificationStatus === 'verified'
           ? `<span class="ver-badge verified">✅ Verified Visit</span>`
-          : r.verificationStatus === 'fake' || r.verificationStatus === 'flagged'
-            ? `<span class="ver-badge fake">⚠️ Unverified</span>`
+          : r.verificationStatus === 'fake'
+            ? `<span class="ver-badge fake">⚠️ Fake Review</span>`
             : `<span class="ver-badge pending">🕐 Pending</span>`;
 
         const repliesHTML = (r.replies || []).map(rep => `
@@ -336,10 +349,11 @@ async function renderDoctorProfile(id) {
             <div style="display:flex;flex-direction:column;gap:10px">
               <div class="doc-info-row"><span class="icon">🏥</span><span>${doc.chamber || doc.hospital}</span></div>
               ${doc.visitLocation ? `<div class="doc-info-row"><span class="icon">📌</span><span>${doc.visitLocation}</span></div>` : ''}
-              ${doc.visitDays     ? `<div class="doc-info-row"><span class="icon">📅</span><span>${doc.visitDays}</span></div>`     : ''}
-              ${Array.isArray(doc.visitHours) && doc.visitHours.length
-                ? `<div class="doc-info-row"><span class="icon">⏰</span><span>${doc.visitHours.join(', ')}</span></div>`
-                : doc.chamberTime ? `<div class="doc-info-row"><span class="icon">⏰</span><span>${doc.chamberTime}</span></div>` : ''}
+              ${doc.visitDays     ? `<div class="doc-info-row"><span class="icon">📅</span><span>${doc.visitDays}</span></div>` : ''}
+              ${doc.visitHours && doc.visitHours.length
+                ? `<div class="doc-info-row"><span class="icon">⏰</span><span>${Array.isArray(doc.visitHours) ? doc.visitHours.join(', ') : doc.visitHours}</span></div>`
+                : doc.chamberTime
+                  ? `<div class="doc-info-row"><span class="icon">⏰</span><span>${doc.chamberTime}</span></div>` : ''}
               ${doc.medicalCollege ? `<div class="doc-info-row"><span class="icon">🎓</span><span>${doc.medicalCollege}</span></div>` : ''}
             </div>
           </div>
@@ -372,14 +386,13 @@ async function markHelpfulAndRefresh(reviewId, doctorId) {
   showToast('Helpful mark হয়েছে!', 'success');
 }
 
-// ── Review ────────────────────────────────────────────────────
-
+// ── Review ───────────────────────────────────────────────────
 function handleReview(doctorId) {
   const user = DB.getSession();
   if (!user) { showToast('Review দিতে আগে login করুন', 'error'); openModal('modal-login'); return; }
   if (user.role !== 'patient') { showToast('শুধুমাত্র রোগীরা review দিতে পারবেন', 'error'); return; }
 
-  document.getElementById('review-form').onsubmit = async e => {
+  document.getElementById('review-form').onsubmit = async (e) => {
     e.preventDefault();
     const rating  = document.querySelector('input[name="rating"]:checked')?.value;
     const comment = document.getElementById('review-comment').value.trim();
@@ -387,16 +400,17 @@ function handleReview(doctorId) {
     if (!comment) { showToast('Review লিখুন', 'error'); return; }
 
     const fileInput = document.getElementById('review-file');
-    let fileData = null;
+    let fileData    = null;
     if (fileInput?.files[0]) {
       const file = fileInput.files[0];
       if (file.size > 5 * 1024 * 1024) { showToast('File size ৫MB-এর বেশি হবে না', 'error'); return; }
       fileData = await new Promise(res => {
-        const r = new FileReader();
+        const r  = new FileReader();
         r.onload = ev => res({ data: ev.target.result, name: file.name, type: file.type });
         r.readAsDataURL(file);
       });
     }
+
     const result = await DB.addReview(doctorId, user.id, user.name, rating, comment, fileData);
     if (result.error) { showToast(result.error, 'error'); closeModal('modal-review'); return; }
     closeModal('modal-review');
@@ -407,11 +421,12 @@ function handleReview(doctorId) {
   openModal('modal-review');
 }
 
+// ── Reply Modal ──────────────────────────────────────────────
 function openReplyModal(reviewId, doctorId) {
   const user = DB.getSession();
   if (!user) { showToast('Reply দিতে login করুন', 'error'); return; }
 
-  document.getElementById('reply-form').onsubmit = async e => {
+  document.getElementById('reply-form').onsubmit = async (e) => {
     e.preventDefault();
     const text = document.getElementById('reply-text').value.trim();
     if (!text) { showToast('Reply লিখুন', 'error'); return; }
@@ -424,8 +439,7 @@ function openReplyModal(reviewId, doctorId) {
   openModal('modal-reply');
 }
 
-// ── Patient dashboard ─────────────────────────────────────────
-
+// ── Patient Dashboard ────────────────────────────────────────
 async function renderPatientDashboard() {
   const user = DB.getSession();
   if (!user || user.role !== 'patient') { showPage('home'); return; }
@@ -435,10 +449,10 @@ async function renderPatientDashboard() {
 
   const { reviews, remaining } = await _http.get('/users/me/reviews')
     .then(d => d._error ? { reviews: [], remaining: 20 } : d)
-    .catch(()  => ({ reviews: [], remaining: 20 }));
+    .catch(() => ({ reviews: [], remaining: 20 }));
 
-  setEl('patient-dash-reviews',      (reviews || []).length);
-  setEl('patient-review-remaining',  remaining >= 0 ? remaining : 0);
+  setEl('patient-dash-reviews',     (reviews || []).length);
+  setEl('patient-review-remaining', remaining >= 0 ? remaining : 0);
 
   const picEl = document.getElementById('patient-dash-pic');
   if (picEl) picEl.innerHTML = user.profilePic
@@ -459,7 +473,8 @@ async function renderPatientDashboard() {
   if (revEl) {
     const all = reviews || [];
     if (all.length) {
-      const docsArr = await Promise.all([...new Set(all.map(r => r.doctorId))].map(id => DB.getDoctorById(id)));
+      const docIds  = [...new Set(all.map(r => r.doctorId))];
+      const docsArr = await Promise.all(docIds.map(id => DB.getDoctorById(id)));
       const docsMap = {};
       docsArr.forEach(d => { if (d) docsMap[d.id] = d; });
       revEl.innerHTML = all.map(r => `
@@ -479,18 +494,18 @@ async function renderPatientDashboard() {
   }
 }
 
-// ── Doctor dashboard ──────────────────────────────────────────
-
+// ── Doctor Dashboard ─────────────────────────────────────────
 async function renderDoctorDashboard() {
   const user = DB.getSession();
   if (!user || user.role !== 'doctor') { showPage('home'); return; }
 
-  const doc = await DB.getDoctorByUserId(user.id);
-  setEl('doctor-dash-name', user.name);
+  const doc    = await DB.getDoctorByUserId(user.id);
+  const docPic = doc?.profilePic || user.profilePic;
 
+  setEl('doctor-dash-name', user.name);
   const picEl = document.getElementById('doctor-dash-pic');
-  if (picEl) picEl.innerHTML = (doc?.profilePic || user.profilePic)
-    ? `<img src="${doc?.profilePic || user.profilePic}" class="dash-avatar-img">`
+  if (picEl) picEl.innerHTML = docPic
+    ? `<img src="${docPic}" class="dash-avatar-img">`
     : `<div class="dash-avatar">${user.avatar}</div>`;
 
   if (!doc) return;
@@ -506,8 +521,8 @@ async function renderDoctorDashboard() {
       ? reviews.sort((a, b) => new Date(b.date) - new Date(a.date)).map(r => {
           const verBadge = r.verificationStatus === 'verified'
             ? `<span class="ver-badge verified">✅ Verified</span>`
-            : r.verificationStatus === 'fake' || r.verificationStatus === 'flagged'
-              ? `<span class="ver-badge fake">⚠️ Unverified</span>`
+            : r.verificationStatus === 'fake'
+              ? `<span class="ver-badge fake">⚠️ Fake</span>`
               : `<span class="ver-badge pending">🕐 Pending</span>`;
           const repliesHTML = (r.replies || []).map(rep => `
             <div class="reply-card ${rep.authorRole === 'doctor' ? 'doctor-reply' : ''}">
@@ -550,19 +565,18 @@ async function renderDoctorDashboard() {
   }
 }
 
-// ── Profile ───────────────────────────────────────────────────
-
+// ── Profile Page ─────────────────────────────────────────────
 async function renderProfilePage() {
   const user = DB.getSession();
   if (!user) { showPage('home'); return; }
+
   const isDoctor = user.role === 'doctor';
   const doc      = isDoctor ? await DB.getDoctorByUserId(user.id) : null;
-  const el       = document.getElementById('profile-content');
-  if (!el) return;
-
-  const picHTML = user.profilePic
+  const picHTML  = user.profilePic
     ? `<img src="${user.profilePic}" class="profile-big-img">`
     : `<div class="profile-big-avatar">${user.avatar}</div>`;
+  const el = document.getElementById('profile-content');
+  if (!el) return;
 
   el.innerHTML = `
     <div class="profile-hero" style="padding:40px 5%">
@@ -603,23 +617,23 @@ async function renderProfilePage() {
     </div>`;
 }
 
+// ── Profile Pic Upload ───────────────────────────────────────
 function uploadProfilePic(input) {
   const file = input.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) { showToast('ছবির size ২MB-এর বেশি হবে না', 'error'); return; }
   const reader = new FileReader();
-  reader.onload = async e => {
+  reader.onload = async (e) => {
     const user = DB.getSession();
     await DB.setProfilePic(user.id, e.target.result);
     renderNavbar();
     renderProfilePage();
-    showToast('Profile picture update হয়েছে! সবাই দেখতে পাবেন ✅', 'success');
+    showToast('Profile picture update হয়েছে! ✅', 'success');
   };
   reader.readAsDataURL(file);
 }
 
-// ── Settings ──────────────────────────────────────────────────
-
+// ── Settings ─────────────────────────────────────────────────
 async function renderSettingsPage() {
   const user     = DB.getSession();
   if (!user) { showPage('home'); return; }
@@ -639,17 +653,13 @@ async function renderSettingsPage() {
           <div class="form-row">
             <div class="form-group"><label>Phone</label><input class="form-control" id="set-phone" value="${user.phone || ''}"></div>
             <div class="form-group"><label>Blood Group</label>
-              <select class="form-control" id="set-blood">
-                ${['','A+','A-','B+','B-','O+','O-','AB+','AB-'].map(b => `<option ${user.bloodGroup === b ? 'selected' : ''}>${b}</option>`).join('')}
-              </select>
+              <select class="form-control" id="set-blood">${['', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(b => `<option ${user.bloodGroup === b ? 'selected' : ''}>${b}</option>`).join('')}</select>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>বয়স</label><input class="form-control" type="number" id="set-age" value="${user.age || ''}"></div>
             <div class="form-group"><label>লিঙ্গ</label>
-              <select class="form-control" id="set-gender">
-                ${['','Male','Female','Other'].map(g => `<option ${user.gender === g ? 'selected' : ''}>${g}</option>`).join('')}
-              </select>
+              <select class="form-control" id="set-gender">${['', 'Male', 'Female', 'Other'].map(g => `<option ${user.gender === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
             </div>
           </div>
           <div class="form-group"><label>ঠিকানা</label><input class="form-control" id="set-address" value="${user.address || ''}"></div>` : ''}
@@ -664,15 +674,14 @@ async function renderSettingsPage() {
           <div class="form-group"><label>Chamber Address</label><input class="form-control" id="set-chamber" value="${doc.chamber || ''}"></div>
           <div class="form-group"><label>Visit Location</label>
             <select class="form-control" id="set-visit-location">
-              ${['','সরকারি হাসপাতাল','বেসরকারি হাসপাতাল','ক্লিনিক','ডায়াগনস্টিক সেন্টার','নিজস্ব চেম্বার','অনলাইন (Telemedicine)']
-                .map(v => `<option ${doc.visitLocation === v ? 'selected' : ''}>${v}</option>`).join('')}
+              ${['', 'সরকারি হাসপাতাল', 'বেসরকারি হাসপাতাল', 'ক্লিনিক', 'ডায়াগনস্টিক সেন্টার', 'নিজস্ব চেম্বার', 'অনলাইন (Telemedicine)'].map(v => `<option ${doc.visitLocation === v ? 'selected' : ''}>${v}</option>`).join('')}
             </select>
           </div>
           <div class="form-group"><label>Visit Days</label><input class="form-control" id="set-visit-days" value="${doc.visitDays || ''}"></div>
           <div class="form-row">
             <div class="form-group"><label>জেলা</label>
               <select class="form-control" id="set-district">
-                ${BD_DATA.DISTRICTS.map(d => `<option ${doc.district === d ? 'selected' : ''}>${d}</option>`).join('')}
+                ${['Dhaka', 'Chittagong', 'Sylhet', 'Rajshahi', 'Khulna', 'Barisal', 'Rangpur', 'Mymensingh', 'Comilla', 'Noakhali', 'Bogura', 'Jessore', 'Faridpur', 'Dinajpur'].map(d => `<option ${doc.district === d ? 'selected' : ''}>${d}</option>`).join('')}
               </select>
             </div>
             <div class="form-group"><label>Visit Fee (৳)</label><input class="form-control" type="number" id="set-fee" value="${doc.fee || ''}"></div>
@@ -703,7 +712,10 @@ async function renderSettingsPage() {
 async function saveBasicSettings(e) {
   e.preventDefault();
   const user = DB.getSession();
-  const data = { name: document.getElementById('set-name').value, email: document.getElementById('set-email').value };
+  const data = {
+    name:  document.getElementById('set-name').value,
+    email: document.getElementById('set-email').value,
+  };
   if (user.role === 'patient') {
     data.phone      = document.getElementById('set-phone')?.value   || '';
     data.bloodGroup = document.getElementById('set-blood')?.value   || '';
@@ -721,6 +733,7 @@ async function saveBasicSettings(e) {
 
 async function saveDoctorSettings(e) {
   e.preventDefault();
+  const user = DB.getSession();
   const data = {
     hospital:      document.getElementById('set-hospital').value,
     chamber:       document.getElementById('set-chamber').value,
@@ -731,7 +744,7 @@ async function saveDoctorSettings(e) {
     experience:    parseInt(document.getElementById('set-exp').value)  || 0,
     about:         document.getElementById('set-about').value,
   };
-  const result = await DB.updateDoctorProfile(DB.getSession().id, data);
+  const result = await DB.updateDoctorProfile(user.id, data);
   if (result.error) { showToast(result.error, 'error'); return; }
   showToast('Doctor profile save হয়েছে! ✅', 'success');
 }
@@ -740,36 +753,34 @@ async function changePassword(e) {
   e.preventDefault();
   const newPass = document.getElementById('set-new-pass').value;
   const confirm = document.getElementById('set-confirm-pass').value;
-  if (newPass.length < 6)    { showToast('কমপক্ষে ৬ অক্ষরের password দিন', 'error'); return; }
-  if (newPass !== confirm)   { showToast('Password দুটো মিলছে না', 'error'); return; }
+  if (newPass.length < 6) { showToast('নতুন password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error'); return; }
+  if (newPass !== confirm) { showToast('Password দুটো মিলছে না', 'error'); return; }
   const result = await DB.changePassword(newPass);
   if (result._error) { showToast(result._error, 'error'); return; }
-  ['set-new-pass','set-confirm-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['set-new-pass', 'set-confirm-pass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   showToast('Password পরিবর্তন হয়েছে! ✅', 'success');
 }
 
 async function confirmDeleteAccount() {
   if (!confirm('সত্যিই কি account delete করতে চান? এই কাজ পূর্বাবস্থায় ফেরানো যাবে না।')) return;
   if (!confirm('আরেকবার নিশ্চিত করুন — account delete হয়ে যাবে।')) return;
-  await DB.deleteAccount(DB.getSession().id);
+  const user = DB.getSession();
+  await DB.deleteAccount(user.id);
   renderNavbar();
   showPage('home');
   showToast('Account সফলভাবে delete করা হয়েছে', 'info');
 }
 
 // ── Admin ─────────────────────────────────────────────────────
-
 async function renderAdmin() {
   const user = DB.getSession();
   if (!user || user.role !== 'admin') { showPage('home'); return; }
-
   const s = await DB.getStats();
   setEl('admin-total-doctors',  s.totalDoctors);
   setEl('admin-total-patients', s.totalPatients);
   setEl('admin-total-reviews',  s.totalReviews);
   setEl('admin-total-visits',   (s.totalVisits || 0).toLocaleString());
   setEl('admin-pending-reviews',s.pendingReviews);
-
   renderAdminDoctors();
   renderAdminUsers();
   renderAdminReviews();
@@ -810,11 +821,14 @@ async function renderAdminUsers() {
       <td><span class="status-badge ${u.role === 'doctor' ? 'confirmed' : 'pending'}">${u.role === 'doctor' ? '👨‍⚕️ Doctor' : '🧑‍🤒 Patient'}</span></td>
       <td style="font-size:0.82rem">${u.email}</td>
       <td><span class="status-badge ${u.banned ? 'cancelled' : 'confirmed'}">${u.banned ? '🚫 Banned' : '✅ Active'}</span></td>
-      <td style="font-size:0.78rem;color:var(--gray-400)">${u.banReason === 'bmdc_revoked' ? '🆔 BMDC Revoked' : u.banReason === 'monthly_review_limit' ? '📊 Review Limit' : u.banned ? '⚙️ Admin' : '—'}</td>
+      <td style="font-size:0.78rem;color:var(--gray-400)">${
+        u.banReason === 'bmdc_revoked'        ? '🆔 BMDC Revoked'  :
+        u.banReason === 'monthly_review_limit'? '📊 Review Limit'  :
+        u.banned                              ? '⚙️ Admin'         : '-'}</td>
       <td style="display:flex;gap:4px">
         ${u.banned
-          ? `<button onclick="adminUnbanUser(${u.id})" class="admin-btn-success">Unban</button>`
-          : `<button onclick="adminBanUser(${u.id})" class="admin-btn-danger">Ban</button>`}
+          ? `<button onclick="adminUnbanUser(${u.id})"         class="admin-btn-success">Unban</button>`
+          : `<button onclick="adminBanUser(${u.id})"           class="admin-btn-danger">Ban</button>`}
         <button onclick="confirmAdminDeleteUser(${u.id})" class="admin-btn-warn">Delete</button>
       </td>
     </tr>`).join('')}</tbody>
@@ -825,9 +839,12 @@ async function renderAdminReviews() {
   const el = document.getElementById('admin-reviews-list');
   if (!el) return;
   const reviews = await DB.getAll('reviews');
-  reviews.sort((a, b) => ({ pending: 0, verified: 1, fake: 2, flagged: 2 }[a.verificationStatus] || 1) - ({ pending: 0, verified: 1, fake: 2, flagged: 2 }[b.verificationStatus] || 1));
-
-  const docsArr = await Promise.all([...new Set(reviews.map(r => r.doctorId))].map(id => DB.getDoctorById(id)));
+  reviews.sort((a, b) => {
+    const order = { pending: 0, verified: 1, fake: 2 };
+    return (order[a.verificationStatus] || 1) - (order[b.verificationStatus] || 1);
+  });
+  const docIds  = [...new Set(reviews.map(r => r.doctorId))];
+  const docsArr = await Promise.all(docIds.map(id => DB.getDoctorById(id)));
   const docsMap = {};
   docsArr.forEach(d => { if (d) docsMap[d.id] = d; });
 
@@ -838,11 +855,17 @@ async function renderAdminReviews() {
       <td>${docsMap[r.doctorId]?.name || '—'}</td>
       <td>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
       <td style="font-size:0.82rem;max-width:180px;white-space:normal">${(r.comment || '').slice(0, 80)}${(r.comment || '').length > 80 ? '...' : ''}</td>
-      <td>${r.fileRef ? `<button onclick="adminViewFile(${r.id})" class="admin-btn-info">📎 দেখুন</button>` : '<span style="color:var(--gray-400);font-size:0.8rem">নেই</span>'}</td>
-      <td>${r.verificationStatus === 'verified' ? '<span class="ver-badge verified">✅ Verified</span>' : (r.verificationStatus === 'fake' || r.verificationStatus === 'flagged') ? '<span class="ver-badge fake">⚠️ Unverified</span>' : '<span class="ver-badge pending">🕐 Pending</span>'}</td>
+      <td>${r.fileRef
+        ? `<button onclick="adminViewFile(${r.id})" class="admin-btn-info">📎 দেখুন</button>`
+        : '<span style="color:var(--gray-400);font-size:0.8rem">নেই</span>'}</td>
+      <td>${r.verificationStatus === 'verified'
+        ? '<span class="ver-badge verified">✅ Verified</span>'
+        : r.verificationStatus === 'fake'
+          ? '<span class="ver-badge fake">⚠️ Fake</span>'
+          : '<span class="ver-badge pending">🕐 Pending</span>'}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         ${r.verificationStatus !== 'verified' ? `<button onclick="setReviewStatus(${r.id},'verified')" class="admin-btn-success">✅</button>` : ''}
-        ${r.verificationStatus !== 'fake' && r.verificationStatus !== 'flagged' ? `<button onclick="setReviewStatus(${r.id},'fake')" class="admin-btn-warn">⚠️</button>` : ''}
+        ${r.verificationStatus !== 'fake'     ? `<button onclick="setReviewStatus(${r.id},'fake')"     class="admin-btn-warn">⚠️</button>`    : ''}
         <button onclick="adminDeleteReview(${r.id})" class="admin-btn-danger">Delete</button>
       </td>
     </tr>`).join('')}</tbody>
@@ -850,23 +873,22 @@ async function renderAdminReviews() {
 }
 
 async function renderAdminBmdc() {
-  const el = document.getElementById('admin-bmdc-section');
+  const el      = document.getElementById('admin-bmdc-section');
   if (!el) return;
   const info    = await DB.getBmdcSyncInfo();
   const revoked = await DB.getRevokedBmdcList();
-
-  el.innerHTML = `
+  el.innerHTML  = `
     <div class="profile-card" style="margin-bottom:16px">
       <h3>🔄 BMDC Auto-Sync</h3>
       <p style="font-size:0.85rem;color:var(--gray-600);margin-bottom:12px">
         প্রতিদিন automatically BMDC status check হয়। Revoked BMDC-র ডাক্তারের account suspend হয়।<br>
-        <em style="color:var(--gray-400);font-size:0.8rem">বাস্তবে Government BMDC API-র সাথে connect করতে হবে।</em>
+        <em style="color:var(--gray-400);font-size:0.8rem">* বাস্তবে Government BMDC API-র সাথে connect হবে।</em>
       </p>
       <div class="info-row"><span>⏱️ শেষ sync</span><span>${info.lastSync}</span></div>
       <div class="info-row"><span>🚫 Revoked BMDC</span><span>${info.revokedCount} টি</span></div>
       <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-        <button onclick="adminRunSync()" class="btn-primary" style="font-size:0.85rem;padding:8px 18px">🔄 এখনই Sync করুন</button>
-        <button onclick="adminRevokeBmdcPrompt()" class="admin-btn-warn">🚫 BMDC Revoke করুন</button>
+        <button onclick="adminRunSync()"           class="btn-primary"    style="font-size:0.85rem;padding:8px 18px">🔄 এখনই Sync করুন</button>
+        <button onclick="adminRevokeBmdcPrompt()"  class="admin-btn-warn">🚫 BMDC Revoke করুন</button>
       </div>
     </div>
     ${revoked.length ? `
@@ -882,96 +904,129 @@ async function renderAdminBmdc() {
     </div>` : ''}`;
 }
 
-async function adminRunSync()           { const r = await DB.runBmdcSync(); renderAdmin(); showToast(`BMDC Sync সম্পন্ন! ${r.suspended} টি account suspend হয়েছে।`, 'info'); }
-async function adminRevokeBmdc(bmdc)    { if (!confirm(`BMDC ${bmdc} revoke করবেন?`)) return; await DB.revokeBmdc(bmdc); renderAdmin(); showToast(`BMDC ${bmdc} revoke হয়েছে।`, 'info'); }
-async function adminReinstateBmdc(bmdc) { await DB.reinstateBmdc(bmdc); renderAdmin(); showToast('BMDC reinstate হয়েছে', 'success'); }
-function adminRevokeBmdcPrompt()        { const b = prompt('কোন BMDC নম্বর revoke করতে চান?'); if (b) adminRevokeBmdc(b.trim()); }
-async function setReviewStatus(reviewId, status) { await DB.setReviewVerification(reviewId, status); renderAdminReviews(); showToast(`Review ${status === 'verified' ? 'Verified' : 'Unverified'} চিহ্নিত হয়েছে`, 'success'); }
+async function adminRunSync() {
+  const result = await DB.runBmdcSync();
+  renderAdmin();
+  showToast(`BMDC Sync সম্পন্ন! ${result.suspended} টি account suspend হয়েছে।`, 'info');
+}
+
+async function adminRevokeBmdc(bmdc) {
+  if (!confirm(`BMDC ${bmdc} revoke করবেন? সংশ্লিষ্ট ডাক্তারের account suspend হবে।`)) return;
+  await DB.revokeBmdc(bmdc);
+  renderAdmin();
+  showToast(`BMDC ${bmdc} revoke হয়েছে।`, 'info');
+}
+
+async function adminReinstateBmdc(bmdc) {
+  await DB.reinstateBmdc(bmdc);
+  renderAdmin();
+  showToast('BMDC reinstate হয়েছে', 'success');
+}
+
+function adminRevokeBmdcPrompt() {
+  const bmdc = prompt('কোন BMDC নম্বর revoke করতে চান? (যেমন: a-12345)');
+  if (bmdc) adminRevokeBmdc(bmdc.trim());
+}
+
+async function setReviewStatus(reviewId, status) {
+  await DB.setReviewVerification(reviewId, status);
+  renderAdminReviews();
+  showToast(`Review ${status === 'verified' ? 'Verified' : 'Fake'} চিহ্নিত হয়েছে`, 'success');
+}
 
 async function adminViewFile(reviewId) {
   const fileData = await DB.getReviewFile(reviewId);
   if (!fileData) { showToast('File পাওয়া যায়নি', 'error'); return; }
+  const mime = fileData.mime_type || fileData.mimeType || '';
+  const data = fileData.file_data || fileData.fileData;
+  const name = fileData.file_name || fileData.fileName;
   document.getElementById('admin-file-viewer-content').innerHTML = `
     <div style="text-align:center">
       <p style="font-size:0.85rem;color:var(--gray-600);margin-bottom:12px">
-        📎 <strong>${fileData.file_name || fileData.fileName}</strong>
+        📎 <strong>${name}</strong>
         <span style="color:var(--gray-400);font-size:0.78rem"> — শুধুমাত্র admin দেখতে পারেন।</span>
       </p>
-      ${(fileData.mime_type || fileData.mimeType || '').startsWith('image/')
-        ? `<img src="${fileData.file_data || fileData.fileData}" style="max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--gray-200)">`
-        : `<a href="${fileData.file_data || fileData.fileData}" download="${fileData.file_name || fileData.fileName}" class="btn-primary" style="display:inline-block;text-decoration:none">⬇️ Download করুন</a>`}
+      ${mime.startsWith('image/')
+        ? `<img src="${data}" style="max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--gray-200)">`
+        : `<a href="${data}" download="${name}" class="btn-primary" style="display:inline-block;text-decoration:none">⬇️ Download করুন</a>`}
     </div>`;
   openModal('modal-admin-file');
 }
 
-async function adminDeleteDoctor(id)    { if (!confirm('এই ডাক্তারকে delete করবেন?')) return; await DB.deleteDoctor(id); renderAdmin(); showToast('ডাক্তার remove হয়েছে', 'info'); }
-async function adminDeleteReview(id)    { if (!confirm('এই review delete করবেন?')) return; await DB.deleteReview(id); renderAdminReviews(); showToast('Review delete হয়েছে', 'info'); }
-async function adminBanUser(id)         { await DB.banUser(id, 'admin_ban'); renderAdmin(); showToast('Ban করা হয়েছে', 'info'); }
-async function adminUnbanUser(id)       { await DB.unbanUser(id); renderAdmin(); showToast('Unban হয়েছে', 'success'); }
-async function confirmAdminDeleteUser(id) { if (!confirm('এই user-কে সম্পূর্ণ delete করবেন?')) return; await DB.deleteAccount(id); renderAdmin(); showToast('User delete হয়েছে', 'info'); }
+async function adminDeleteDoctor(id) {
+  if (!confirm('এই ডাক্তারকে delete করবেন?')) return;
+  await DB.deleteDoctor(id); renderAdmin(); showToast('ডাক্তার remove হয়েছে', 'info');
+}
+
+async function adminDeleteReview(id) {
+  if (!confirm('এই review delete করবেন?')) return;
+  await DB.deleteReview(id); renderAdminReviews(); showToast('Review delete হয়েছে', 'info');
+}
+
+async function adminBanUser(id)   { await DB.banUser(id, 'admin_ban'); renderAdmin(); showToast('Ban করা হয়েছে', 'info'); }
+async function adminUnbanUser(id) { await DB.unbanUser(id);            renderAdmin(); showToast('Unban হয়েছে', 'success'); }
+
+async function confirmAdminDeleteUser(id) {
+  if (!confirm('এই user-কে সম্পূর্ণ delete করবেন?')) return;
+  await DB.deleteAccount(id); renderAdmin(); showToast('User delete হয়েছে', 'info');
+}
 
 function openAddDoctorModal() {
-  document.getElementById('add-doctor-form').onsubmit = async e => {
+  document.getElementById('add-doctor-form').onsubmit = async (e) => {
     e.preventDefault();
     const data = {
-      name:       document.getElementById('add-name').value,
-      specialty:  document.getElementById('add-specialty').value,
-      degrees:    [{ degree: document.getElementById('add-degree').value, institution: document.getElementById('add-institution').value, year: '', subject: '' }],
-      bmdc:       document.getElementById('add-bmdc').value,
-      hospital:   document.getElementById('add-hospital').value,
-      chamber:    document.getElementById('add-chamber').value,
-      district:   document.getElementById('add-district').value,
-      experience: document.getElementById('add-exp').value,
-      fee:        document.getElementById('add-fee').value,
-      phone:      document.getElementById('add-phone').value,
-      email:      document.getElementById('add-email').value,
-      about:      document.getElementById('add-about').value,
+      name:        document.getElementById('add-name').value,
+      specialty:   document.getElementById('add-specialty').value,
+      degrees:     [{ degree: document.getElementById('add-degree').value, institution: document.getElementById('add-institution').value, year: '', subject: '' }],
+      bmdc:        document.getElementById('add-bmdc').value,
+      hospital:    document.getElementById('add-hospital').value,
+      chamber:     document.getElementById('add-chamber').value,
+      district:    document.getElementById('add-district').value,
+      experience:  document.getElementById('add-exp').value,
+      fee:         document.getElementById('add-fee').value,
+      phone:       document.getElementById('add-phone').value,
+      email:       document.getElementById('add-email').value,
+      about:       document.getElementById('add-about').value,
     };
     const result = await _http.post('/doctors', data);
     if (result._error) { showToast(result._error, 'error'); return; }
-    closeModal('modal-add-doctor');
-    renderAdmin();
-    showToast('ডাক্তার সফলভাবে যোগ হয়েছে!', 'success');
-    e.target.reset();
+    closeModal('modal-add-doctor'); renderAdmin();
+    showToast('ডাক্তার সফলভাবে যোগ হয়েছে!', 'success'); e.target.reset();
   };
   openModal('modal-add-doctor');
 }
 
 // ── Auth ──────────────────────────────────────────────────────
-
 async function handleLogin(e) {
   e.preventDefault();
-  const result = await DB.findUser(
-    document.getElementById('login-email').value,
-    document.getElementById('login-password').value
-  );
+  const email    = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const result   = await DB.findUser(email, password);
   if (!result) { showToast('Email বা password ভুল', 'error'); return; }
   if (result.banned) {
-    showToast(result.banReason === 'bmdc_revoked'
+    const msg = result.banReason === 'bmdc_revoked'
       ? 'আপনার BMDC নম্বর revoke হয়েছে। BMDC কর্তৃপক্ষের সাথে যোগাযোগ করুন।'
-      : 'আপনার account বন্ধ করা হয়েছে। admin-এর সাথে যোগাযোগ করুন।', 'error');
-    return;
+      : 'আপনার account বন্ধ করা হয়েছে। admin-এর সাথে যোগাযোগ করুন।';
+    showToast(msg, 'error'); return;
   }
   closeModal('modal-login');
-  renderNavbar();
-  updateHeroStats();
+  renderNavbar(); updateHeroStats();
   showToast(`স্বাগতম, ${result.name.split(' ')[0]}! 👋`, 'success');
-  if (result.role === 'admin')        showPage('admin');
-  else if (result.role === 'doctor')  showPage('doctor-dashboard');
-  else                                showPage('patient-dashboard');
+  if (result.role === 'admin')  showPage('admin');
+  else if (result.role === 'doctor') showPage('doctor-dashboard');
+  else showPage('patient-dashboard');
 }
 
-// ── Degree builder ────────────────────────────────────────────
-
+// ── Degree Builder ────────────────────────────────────────────
 let degrees = [];
 const DEGREE_LIST = ['MBBS','BDS','FCPS','MD','MS','MPhil','PhD','DDV','DCH','DGO','DTCD','DA','DLO','DO','MPH','MRCP','FRCS','FRCP','Diploma','Post-Graduate Diploma'];
-const SUBJECTS = ['Medicine','Surgery','Cardiology','Dermatology','Orthopedics','Gynecology','Neurology','Pediatrics','ENT','Ophthalmology','Psychiatry','Gastroenterology','Urology','Endocrinology','Oncology','Pulmonology','Nephrology','Radiology','Anaesthesiology','Pathology','Microbiology','Physical Medicine','Hematology','Rheumatology','Hepatology','Neonatology','Vascular Surgery','Plastic Surgery','Neurosurgery','Cardiothoracic Surgery'];
+const SUBJECTS    = ['Medicine','Surgery','Cardiology','Dermatology','Orthopedics','Gynecology','Neurology','Pediatrics','ENT','Ophthalmology','Psychiatry','Gastroenterology','Urology','Endocrinology','Oncology','Pulmonology','Nephrology','Radiology','Anaesthesiology','Pathology','Microbiology','Physical Medicine','Hematology','Rheumatology','Hepatology','Neonatology','Vascular Surgery','Plastic Surgery','Neurosurgery','Cardiothoracic Surgery'];
 
 function initDegreeBuilder() {
   const degSel = document.getElementById('degree-select');
   const subSel = document.getElementById('degree-subject');
   if (degSel) degSel.innerHTML = '<option value="">Degree বেছে নিন</option>' + DEGREE_LIST.map(d => `<option value="${d}">${d}</option>`).join('');
-  if (subSel) subSel.innerHTML = '<option value="">Subject (optional)</option>' + SUBJECTS.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (subSel) subSel.innerHTML = '<option value="">Subject (optional)</option>'  + SUBJECTS.map(s => `<option value="${s}">${s}</option>`).join('');
 }
 
 function addDegree() {
@@ -999,16 +1054,17 @@ function renderDegreeList() {
     : `<p style="color:var(--gray-400);font-size:0.85rem;margin:0">কোনো degree যোগ করা হয়নি</p>`;
 }
 
-// ── OTP & Registration ────────────────────────────────────────
-
-let _pendingPatient = null, _pendingDoctor = null, _otpTimerInterval = null;
+// ── Registration ──────────────────────────────────────────────
+let _pendingPatient   = null;
+let _pendingDoctor    = null;
+let _otpTimerInterval = null;
 
 async function handlePatientRegister(e) {
   e.preventDefault();
   const pass = document.getElementById('pat-password').value;
   const conf = document.getElementById('pat-confirm').value;
-  if (pass !== conf)    { showToast('Password দুটো মিলছে না', 'error'); return; }
-  if (pass.length < 6)  { showToast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error'); return; }
+  if (pass !== conf)   { showToast('Password দুটো মিলছে না', 'error'); return; }
+  if (pass.length < 6) { showToast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error'); return; }
   const data = {
     name:        document.getElementById('pat-name').value.trim(),
     email:       document.getElementById('pat-email').value.trim(),
@@ -1019,11 +1075,11 @@ async function handlePatientRegister(e) {
     bloodGroup:  document.getElementById('pat-blood').value,
     address:     document.getElementById('pat-address').value.trim(),
   };
-  if (!data.phone)                                     { showToast('Phone number দিন', 'error'); return; }
-  if (await DB.emailExists(data.email))                { showToast('এই email দিয়ে আগেই account আছে', 'error'); return; }
-  if (await DB.phoneExistsForPatient(data.phone))      { showToast('এই phone number দিয়ে আগেই account আছে', 'error'); return; }
-  if (await DB.isPhoneBanned(data.phone))              { showToast('এই phone number দিয়ে account খোলা সম্ভব নয়', 'error'); return; }
-  if (await DB.isDeviceBanned())                       { showToast('এই device থেকে account খোলা সম্ভব নয়', 'error'); return; }
+  if (!data.phone)                              { showToast('Phone number দিন', 'error'); return; }
+  if (await DB.emailExists(data.email))          { showToast('এই email দিয়ে আগেই account আছে', 'error'); return; }
+  if (await DB.phoneExistsForPatient(data.phone)){ showToast('এই phone number দিয়ে আগেই account আছে', 'error'); return; }
+  if (await DB.isPhoneBanned(data.phone))        { showToast('এই phone number দিয়ে account খোলা সম্ভব নয়', 'error'); return; }
+  if (await DB.isDeviceBanned())                 { showToast('এই device থেকে account খোলা সম্ভব নয়', 'error'); return; }
   _pendingPatient = data; _pendingDoctor = null;
   await sendOTPAndShowModal(data.email, data.name);
 }
@@ -1072,7 +1128,7 @@ async function sendOTPAndShowModal(email, name) {
   if (result.demo) {
     demoBox.style.display = 'block';
     setEl('otp-demo-code', result.code);
-    setEl('otp-demo-note', '⚠️ Demo mode — emailjs.js configure করুন।');
+    setEl('otp-demo-note', result.error ? '⚠️ EmailJS configure করা নেই, demo mode।' : '⚠️ Demo mode — emailjs.js configure করুন।');
   } else {
     demoBox.style.display = 'none';
     showToast('Verification code পাঠানো হয়েছে! 📧', 'success');
@@ -1083,26 +1139,30 @@ async function sendOTPAndShowModal(email, name) {
 function startOTPTimer() {
   clearInterval(_otpTimerInterval);
   _otpTimerInterval = setInterval(() => {
-    const secs   = EmailVerification.getRemainingSeconds();
+    const secs    = EmailVerification.getRemainingSeconds();
     const timerEl = document.getElementById('otp-timer');
-    if (!timerEl) return;
-    if (secs > 0) {
-      timerEl.textContent = `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`;
-      timerEl.style.color = secs < 60 ? 'var(--danger)' : 'var(--teal)';
-    } else {
-      timerEl.textContent = 'মেয়াদ শেষ';
-      timerEl.style.color = 'var(--danger)';
-      clearInterval(_otpTimerInterval);
+    if (timerEl) {
+      if (secs > 0) {
+        const m = Math.floor(secs / 60).toString().padStart(2, '0');
+        const s = (secs % 60).toString().padStart(2, '0');
+        timerEl.textContent = `${m}:${s}`;
+        timerEl.style.color = secs < 60 ? 'var(--danger)' : 'var(--teal)';
+      } else {
+        timerEl.textContent = 'মেয়াদ শেষ';
+        timerEl.style.color = 'var(--danger)';
+        clearInterval(_otpTimerInterval);
+      }
     }
   }, 1000);
 }
 
 async function resendOTP() {
   const email = EmailVerification.getPendingEmail();
+  const name  = _pendingPatient?.name || _pendingDoctor?.name || '';
   if (!email) { showToast('Session শেষ। আবার form fill করুন।', 'error'); closeModal('modal-otp-verify'); return; }
   document.getElementById('otp-code-input').value = '';
   showToast('নতুন code পাঠানো হচ্ছে...', 'info');
-  const result = await EmailVerification.sendOTP(email, _pendingPatient?.name || _pendingDoctor?.name || '');
+  const result = await EmailVerification.sendOTP(email, name);
   if (result.demo) { document.getElementById('otp-demo-box').style.display = 'block'; setEl('otp-demo-code', result.code); }
   startOTPTimer();
   showToast('নতুন code পাঠানো হয়েছে!', 'success');
@@ -1130,8 +1190,7 @@ async function handleOTPVerify(e) {
   } else if (_pendingDoctor) {
     const result = await DB.registerDoctor(_pendingDoctor);
     if (result.error) { showToast(result.error, 'error'); return; }
-    degrees = [];
-    _pendingDoctor = null;
+    degrees = []; _pendingDoctor = null;
     closeModal('modal-otp-verify');
     renderNavbar(); updateHeroStats();
     showToast('Email verified! Doctor account তৈরি হয়েছে! 🎉', 'success');
@@ -1140,9 +1199,11 @@ async function handleOTPVerify(e) {
   document.getElementById('otp-verify-form')?.reset();
 }
 
-// ── Doctor registration steps ─────────────────────────────────
+// ── Doctor Reg Steps ──────────────────────────────────────────
+let doctorStep = 1;
 
 function showDoctorStep(step) {
+  doctorStep = step;
   document.querySelectorAll('.doc-step').forEach(s => s.classList.remove('active'));
   document.getElementById(`doc-step-${step}`)?.classList.add('active');
   document.querySelectorAll('.si').forEach((s, i) => {
@@ -1156,10 +1217,10 @@ async function doctorStep1Next() {
   const email = document.getElementById('doc-email').value.trim();
   const pass  = document.getElementById('doc-password').value;
   const conf  = document.getElementById('doc-confirm').value;
-  if (!name || !email || !pass)         { showToast('সব তথ্য দিন', 'error'); return; }
-  if (pass !== conf)                    { showToast('Password দুটো মিলছে না', 'error'); return; }
-  if (pass.length < 6)                  { showToast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error'); return; }
-  if (await DB.emailExists(email))      { showToast('এই email দিয়ে আগেই account আছে', 'error'); return; }
+  if (!name || !email || !pass) { showToast('সব তথ্য দিন', 'error'); return; }
+  if (pass !== conf)            { showToast('Password দুটো মিলছে না', 'error'); return; }
+  if (pass.length < 6)          { showToast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error'); return; }
+  if (await DB.emailExists(email)) { showToast('এই email দিয়ে আগেই account আছে', 'error'); return; }
   showDoctorStep(2);
 }
 
@@ -1167,29 +1228,37 @@ async function doctorStep2Next() {
   const specialty = document.getElementById('doc-specialty').value;
   const bmdc      = document.getElementById('doc-bmdc').value.trim();
   const exp       = document.getElementById('doc-experience').value;
-  if (!specialty || !bmdc || !exp)      { showToast('সব তথ্য দিন', 'error'); return; }
-  if (degrees.length === 0)             { showToast('কমপক্ষে একটি Degree যোগ করুন', 'error'); return; }
-  if (await DB.bmdcExists(bmdc))        { showToast('এই BMDC নম্বর দিয়ে আগেই ডাক্তার registered আছেন', 'error'); return; }
+  if (!specialty || !bmdc || !exp)  { showToast('সব তথ্য দিন', 'error'); return; }
+  if (degrees.length === 0)          { showToast('কমপক্ষে একটি Degree যোগ করুন', 'error'); return; }
+  if (await DB.bmdcExists(bmdc))     { showToast('এই BMDC নম্বর দিয়ে আগেই ডাক্তার registered আছেন', 'error'); return; }
   showDoctorStep(3);
 }
 
-// ── Shared utilities ──────────────────────────────────────────
+// ── Logout ────────────────────────────────────────────────────
+function logout() {
+  DB.clearSession(); renderNavbar(); updateHeroStats(); showPage('home');
+  showToast('Logout সফল হয়েছে', 'info');
+}
 
-function logout() { DB.clearSession(); renderNavbar(); updateHeroStats(); showPage('home'); showToast('Logout সফল হয়েছে', 'info'); }
-
+// ── Modal ─────────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
-document.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+});
 
+// ── Toast ─────────────────────────────────────────────────────
 function showToast(msg, type = 'info') {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
+  const c  = document.getElementById('toast-container');
+  const t  = document.createElement('div');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
   t.className = `toast ${type}`;
-  t.innerHTML = `<span>${{ success: '✅', error: '❌', info: 'ℹ️' }[type] || ''}</span> ${msg}`;
+  t.innerHTML = `<span>${icons[type] || ''}</span> ${msg}`;
   c.appendChild(t);
   setTimeout(() => t.remove(), 4500);
 }
 
+// ── Tabs ──────────────────────────────────────────────────────
 function switchTab(tabId, btn) {
   const p = btn.closest('.tabs').parentElement;
   p.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1204,5 +1273,8 @@ function switchDashTab(tabId, btn) {
   btn.closest('.dash-sidebar').querySelectorAll('.dash-nav-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   dash.querySelector('#' + tabId)?.classList.add('active');
-  if (tabId === 'pd-overview') { const u = DB.getSession(); if (u) setEl('patient-dash-name2', u.name.split(' ')[0]); }
+  if (tabId === 'pd-overview') {
+    const u = DB.getSession();
+    if (u) setEl('patient-dash-name2', u.name.split(' ')[0]);
+  }
 }
